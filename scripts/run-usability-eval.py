@@ -878,6 +878,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     (run_dir / "summary.md").write_text(
         "\n".join(summary_lines) + "\n", encoding="utf-8"
     )
+    if not overall_passed:
+        print(
+            json.dumps(
+                {
+                    "failed_checks": failed,
+                    "workspace_status_before": list(comparable_before),
+                    "workspace_status_after": list(comparable_after),
+                    "fake_sse_request_samples": len(fake_requests),
+                    "fake_sse_integrity": fake_sse_integrity,
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
     print(
         json.dumps(
             {

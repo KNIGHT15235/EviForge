@@ -63,13 +63,13 @@ jobs:
         run: uv run eviforge dag validate examples/task-graph.json --json
 
       - name: Run five-repeat deterministic usability evaluation
-        run: uv run python scripts/run-usability-eval.py --output-root .ci-eval-results
+        run: uv run python scripts/run-usability-eval.py --output-root ci-eval-results
 
       - name: Upload raw evaluation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: usability-eval-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: .ci-eval-results
+          path: ci-eval-results
           if-no-files-found: error
           retention-days: 14
