@@ -1,0 +1,25 @@
+# Deterministic offline configuration used by CI diagnostics only.
+# No command in the release workflow sends a request to this endpoint.
+providers:
+  - name: offline-ci
+    protocol: openai-compat
+    base_url: http://127.0.0.1:9/v1
+    model: offline-diagnostic-model
+    auth: none
+    thinking: false
+    context_window: 8192
+    max_output_tokens: 512
+
+permission_mode: default
+enable_fork: false
+enable_verification_agent: false
+teammate_mode: in-process
+enable_coordinator_mode: false
+
+worktree:
+  symlink_directories: [node_modules, vendor]
+  stale_cleanup_interval: 3600
+  stale_cutoff_hours: 24
+
+mcp_servers: []
+hooks: []

@@ -1,0 +1,18 @@
+{
+  "python.defaultInterpreterPath": "${env:HOME}/.cache/eviforge/venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "-p",
+    "no:cacheprovider",
+    "tests"
+  ],
+  "python.testing.cwd": "${workspaceFolder}",
+  "python.testing.unittestEnabled": false,
+  "terminal.integrated.env.linux": {
+    "UV_PROJECT_ENVIRONMENT": "${env:HOME}/.cache/eviforge/venv",
+    "VIRTUAL_ENV": "${env:HOME}/.cache/eviforge/venv",
+    "PATH": "${env:HOME}/.cache/eviforge/venv/bin:${env:PATH}"
+  },
+  "files.eol": "\n"
+}

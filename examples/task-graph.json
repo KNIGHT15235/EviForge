@@ -1,0 +1,71 @@
+{
+  "nodes": [
+    {
+      "node_id": "inspect",
+      "role": "explorer",
+      "objective": "只读检查 EviForge 的核心模块并输出结构化 inventory",
+      "acceptance_criteria": [
+        {
+          "criterion_id": "source-present",
+          "description": "核心 Agent 源文件存在",
+          "verifier": "deterministic",
+          "verifier_argv": [
+            "python",
+            "-c",
+            "from pathlib import Path; raise SystemExit(0 if Path('mewcode/agent.py').is_file() else 1)"
+          ],
+          "verifier_cwd": ".",
+          "timeout_seconds": 30,
+          "blocking": true
+        }
+      ],
+      "artifact_contract": {
+        "required_inputs": [],
+        "required_outputs": [
+          "inventory"
+        ]
+      },
+      "token_budget": 1500,
+      "timeout_seconds": 180,
+      "estimated_duration_seconds": 20,
+      "predicted_write_set": []
+    },
+    {
+      "node_id": "verify",
+      "role": "verifier",
+      "objective": "在全新只读上下文中复核 inventory，并输出独立 verification",
+      "depends_on": [
+        "inspect"
+      ],
+      "acceptance_criteria": [
+        {
+          "criterion_id": "compile",
+          "description": "核心源码可编译",
+          "verifier": "deterministic",
+          "verifier_argv": [
+            "python",
+            "-m",
+            "compileall",
+            "-q",
+            "mewcode"
+          ],
+          "verifier_cwd": ".",
+          "timeout_seconds": 120,
+          "blocking": true
+        }
+      ],
+      "artifact_contract": {
+        "required_inputs": [
+          "inventory"
+        ],
+        "required_outputs": [
+          "verification"
+        ]
+      },
+      "token_budget": 1500,
+      "timeout_seconds": 180,
+      "estimated_duration_seconds": 20,
+      "predicted_write_set": []
+    }
+  ]
+}

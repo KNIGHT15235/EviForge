@@ -1,0 +1,5 @@
+{"authorization_present":false,"content_type":"application/json","method":"POST","path":"/v1/chat/completions","protocol_valid":true,"sequence":1,"x_api_key_present":false}
+{"authorization_present":false,"content_type":"application/json","method":"POST","path":"/v1/chat/completions","protocol_valid":true,"sequence":2,"x_api_key_present":false}
+{"authorization_present":false,"content_type":"application/json","method":"POST","path":"/v1/chat/completions","protocol_valid":true,"sequence":3,"x_api_key_present":false}
+{"authorization_present":false,"content_type":"application/json","method":"POST","path":"/v1/chat/completions","protocol_valid":true,"sequence":4,"x_api_key_present":false}
+{"authorization_present":false,"content_type":"application/json","method":"POST","path":"/v1/chat/completions","protocol_valid":true,"sequence":5,"x_api_key_present":false}

@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "task_id": "example-contract",
+  "objective": "完成修改后仍能编译 EviForge 源码",
+  "criteria": [
+    {
+      "criterion_id": "compile",
+      "description": "mewcode 源码可以完成字节码编译",
+      "required": true,
+      "verifier_ids": [
+        "compile-mewcode"
+      ]
+    }
+  ],
+  "verifiers": [
+    {
+      "verifier_id": "compile-mewcode",
+      "name": "compileall",
+      "argv": [
+        "python",
+        "-m",
+        "compileall",
+        "-q",
+        "mewcode"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120,
+      "expected_exit_codes": [
+        0
+      ]
+    }
+  ]
+}

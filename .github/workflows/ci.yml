@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-acceptance:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.12"]
+    env:
+      NO_COLOR: "1"
+      PYTHONUTF8: "1"
+      # Used only by offline configuration validation. No Provider request is made.
+      OPENAI_API_KEY: ci-offline-sentinel-not-a-secret
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Sync locked environment
+        run: uv sync --frozen --dev
+
+      - name: Compile source
+        run: uv run python -m compileall -q mewcode scripts
+
+      - name: Run full regression suite
+        run: uv run pytest -q
+
+      - name: Verify CLI help and version
+        run: |
+          uv run eviforge --help
+          uv run eviforge --version
+
+      - name: Run offline configuration diagnostics
+        run: |
+          uv run eviforge --config examples/config.offline.yaml config check --json
+          uv run eviforge --config examples/config.offline.yaml doctor --json
+
+      - name: Validate DAG offline
+        run: uv run eviforge dag validate examples/task-graph.json --json
+
+      - name: Run five-repeat deterministic usability evaluation
+        run: uv run python scripts/run-usability-eval.py --output-root .ci-eval-results
+
+      - name: Upload raw evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: usability-eval-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: .ci-eval-results
+          if-no-files-found: error
+          retention-days: 14

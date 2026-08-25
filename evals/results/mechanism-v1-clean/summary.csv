@@ -1,0 +1,3 @@
+Experiment,Stratum,EndpointRole,Metric,Contrast,ArmA,ArmAActual,ArmB,ArmBActual,PairedDelta,Cluster95CILow,Cluster95CIHigh,NClusters,NRunsITT,NInvalid,LatencyMedianMsA,LatencyP95MsA,LatencyMedianMsB,LatencyP95MsB
+risk_policy_mechanism_v1,deterministic_safe_fixtures,Primary,risk_false_allow,risk_policy_on_minus_legacy_category_policy,off,0.8333333333333334,on,0.0,-0.75,-1.0,-0.25,4,240,0,0.0285,0.049104999999999996,5.43385,7.6566
+risk_policy_mechanism_v1,deterministic_safe_fixtures,Secondary,binary_pass,risk_policy_on_minus_legacy_category_policy,off,0.16666666666666666,on,1.0,0.75,0.25,1.0,4,240,0,0.0285,0.049104999999999996,5.43385,7.6566

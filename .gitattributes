@@ -1,0 +1,15 @@
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.jsonl text eol=lf
+*.csv text eol=lf
+*.tsv text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf
+uv.lock text eol=lf
+
+# Benchmark artifacts are normalized to LF before hashing and committing.
+evals/results/** text eol=lf

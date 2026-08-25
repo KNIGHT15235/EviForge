@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "description": "Example: allow one exact file write and one exact argv in headless mode",
+  "write_set": ["src/example.py"],
+  "commands": [
+    ["python", "-m", "pytest", "-q", "tests/test_example.py"]
+  ],
+  "network_hosts": []
+}

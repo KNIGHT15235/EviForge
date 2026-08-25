@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/KNIGHT15235/EviForge/schemas/run-result.schema.json",
+  "title": "EviForge headless output record",
+  "description": "Validates a standalone RunResult and every record emitted by RunResult JSONL.",
+  "oneOf": [
+    {"$ref": "#/$defs/runResult"},
+    {"$ref": "#/$defs/eventRecord"}
+  ],
+  "$defs": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "embeddedEvent": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "not": {"const": "run_result"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "eventRecord": {
+      "allOf": [
+        {"$ref": "#/$defs/embeddedEvent"},
+        {
+          "type": "object",
+          "required": ["schema_version"],
+          "properties": {
+            "schema_version": {"$ref": "#/$defs/schemaVersion"}
+          }
+        }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "required": ["type", "code", "message"],
+      "properties": {
+        "type": {"type": "string", "minLength": 1},
+        "code": {"type": "string", "minLength": 1},
+        "message": {"type": "string"},
+        "retryable": {"type": "boolean"},
+        "recommendation": {"type": "string"},
+        "details": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "runResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "status", "exit_code", "provider", "model",
+        "task_id", "trace_id", "verdict", "evidence_bundle_ref", "result",
+        "usage", "tools", "evidence", "capabilities", "background",
+        "recovery", "events", "error"
+      ],
+      "properties": {
+        "type": {"const": "run_result"},
+        "schema_version": {"$ref": "#/$defs/schemaVersion"},
+        "status": {"type": "string", "minLength": 1},
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "provider": {"type": "string"},
+        "model": {"type": "string"},
+        "task_id": {"type": "string"},
+        "trace_id": {"type": "string"},
+        "verdict": {"type": ["string", "null"]},
+        "evidence_bundle_ref": {"type": ["string", "null"]},
+        "result": {"type": "string"},
+        "usage": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "tools": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "evidence": {"type": "object"},
+        "capabilities": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "background": {"type": "object"},
+        "recovery": {"type": "array", "items": {"type": "object"}},
+        "events": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/embeddedEvent"}
+        },
+        "error": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/error"}
+          ]
+        }
+      }
+    }
+  }
+}

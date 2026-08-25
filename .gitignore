@@ -1,0 +1,34 @@
+config.yaml
+__pycache__/
+*.pyc
+.venv/
+.venv-wsl/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.mewcode/
+.claude/
+CLAUDE.md
+
+# Local product-planning source; it contains machine-local research notes and
+# is intentionally excluded from the public release snapshot.
+EviForge_项目修改方案.md
+
+# Benchmark outputs are generated locally. Only explicitly reviewed, redacted
+# evidence folders are unignored; each manifest records whether the run was a
+# clean commit or a modified local candidate.
+evals/results/*/
+!evals/results/usability-v1/
+!evals/results/usability-v1/**
+
+# Full per-command usability runs may contain machine-local paths.  Keep them
+# local/CI-artifact only; commit the redacted curated evidence under evals/.
+eval-results/

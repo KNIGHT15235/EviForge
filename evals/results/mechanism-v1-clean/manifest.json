@@ -1,0 +1,108 @@
+{
+  "adapter": "risk-policy-mechanism",
+  "arm_a": {
+    "feature_flags": {
+      "risk_policy": false
+    },
+    "name": "off",
+    "runtime_sha": "61078884557c1ea31bc5b621622373fa5d3a328f"
+  },
+  "arm_b": {
+    "feature_flags": {
+      "risk_policy": true
+    },
+    "name": "on",
+    "runtime_sha": "61078884557c1ea31bc5b621622373fa5d3a328f"
+  },
+  "artifacts": {
+    "runs.jsonl": "6b999ac6bc23f51e87ddcdb6ed23be21992f11a5705a17ea847ef6e16027c3a5",
+    "summary.csv": "b3726c65d5840c36b5d5a27f47a1650b82b29fb93e72949864e1976a9caa1169",
+    "summary.md": "918ad541fd06a19e97885b207a2e529fe0e5b4d468354070ae2f3078ffa78a71"
+  },
+  "baseline_sha": "efc799f153744b97e7c26aedbe471311e88260f7",
+  "baseline_sha_role": "external runnable-baseline reference; not Arm A runtime",
+  "bootstrap": {
+    "samples": 10000,
+    "seed": 20260812,
+    "unit": "cluster_id"
+  },
+  "candidate_sha": "61078884557c1ea31bc5b621622373fa5d3a328f",
+  "candidate_sha_role": "paired Arm A/Arm B runtime commit reference",
+  "command": [
+    "python",
+    "-m",
+    "evals.run",
+    "mechanism",
+    "--result-name",
+    "mechanism-v1-clean",
+    "--warmup",
+    "3",
+    "--repeats",
+    "20",
+    "--bootstrap-seed",
+    "20260812",
+    "--bootstrap-samples",
+    "10000"
+  ],
+  "contrast": "risk_policy_on_minus_legacy_category_policy",
+  "dataset": {
+    "dataset_sha256": "9d0374ff59d8ab35431773d43dd7028fd39e876a6a7d8b28bf792f8d6106c604",
+    "freeze_manifest_present": true,
+    "path": "evals/datasets/risk_policy_mechanism.v1.jsonl",
+    "schema_version": "eviforge.eval.dataset.v1"
+  },
+  "duration_seconds": 0.728842,
+  "ended_at": "2026-08-13T02:47:45.631206+00:00",
+  "environment": {
+    "cpu": "redacted",
+    "machine": "AMD64",
+    "os": "Windows",
+    "python": "3.12.7",
+    "python_executable": "python"
+  },
+  "evidence_class": "deterministic_mechanism_benchmark",
+  "experiment": "risk_policy_mechanism_v1",
+  "feature_flags": {
+    "risk_policy": [
+      false,
+      true
+    ]
+  },
+  "generalization_claim": "not_an_llm_general_capability_evaluation",
+  "itt": {
+    "enabled": true,
+    "pre_registered_infrastructure_failures": [
+      "filesystem_unavailable",
+      "fixture_corrupt",
+      "runner_interrupted"
+    ],
+    "scheduled_failures_count_as_failure": [
+      "timeout",
+      "crash",
+      "no_output"
+    ]
+  },
+  "n_dataset_cases": 6,
+  "n_scheduled_runs": 240,
+  "paired_runtime_invariant": "same_candidate_runtime_and_adapter; feature flag only",
+  "primary": "risk_false_allow",
+  "repeats": 20,
+  "repository_state_at_start": {
+    "candidate_sha_matches_head": true,
+    "dirty": false,
+    "head_sha": "61078884557c1ea31bc5b621622373fa5d3a328f",
+    "note": "A dirty run is valid as a smoke/provisional mechanism measurement but must be rerun from a clean candidate commit before a resume claim.",
+    "porcelain_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "run_group_id": "2e1bff08588d47b6a69af16d8e53411c",
+  "schema_version": "eviforge.eval.manifest.v1",
+  "scorer_version": "eviforge.scorers.v1",
+  "secondary": [
+    "binary_pass"
+  ],
+  "started_at": "2026-08-13T02:47:44.902364+00:00",
+  "stratum": "deterministic_safe_fixtures",
+  "timeout_seconds": 2.0,
+  "uv_lock_sha256": "94e8785fe5b12db263043b3cffe161e0d9c9622273ad21b0db207ff25363a465",
+  "warmup": 3
+}

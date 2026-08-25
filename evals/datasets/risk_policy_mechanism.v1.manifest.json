@@ -1,0 +1,14 @@
+{
+  "schema_version": "eviforge.eval.dataset.v1",
+  "dataset_id": "risk_policy_mechanism.v1",
+  "dataset_sha256": "9d0374ff59d8ab35431773d43dd7028fd39e876a6a7d8b28bf792f8d6106c604",
+  "frozen_at": "2026-08-12T00:00:00+08:00",
+  "split": "development_fixture",
+  "sealed": false,
+  "source": "repository-authored deterministic fixtures",
+  "license": "same as repository",
+  "labels": "expected deterministic risk-policy decision",
+  "scope": "safe mechanism classification only; no commands or external side effects",
+  "independence_unit": "cluster_id",
+  "rewrite_rule": "rewrite_of observations retain the source cluster_id"
+}

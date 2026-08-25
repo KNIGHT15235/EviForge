@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "evidence_type": "deterministic_release_acceptance",
+  "evaluated_at": "2026-08-23T19:43:51.158254Z",
+  "base_git_sha": "b30ab65bfcf66f570e4789bda3921c5a6827df12",
+  "git_dirty_before": true,
+  "passed": true,
+  "repetitions": 5,
+  "successful_repetitions": 5,
+  "command_samples": 35,
+  "successful_command_samples": 35,
+  "workspace_unchanged_outside_artifacts": true,
+  "fake_sse_integrity": true,
+  "credential_header_leaks": 0,
+  "checks": [
+    {"id": "cli_help", "passed": 5, "samples": 5, "median_ms": 986.187},
+    {"id": "cli_version", "passed": 5, "samples": 5, "median_ms": 822.682},
+    {"id": "config_check", "passed": 5, "samples": 5, "median_ms": 910.25},
+    {"id": "doctor", "passed": 5, "samples": 5, "median_ms": 1107.978},
+    {"id": "dag_validate", "passed": 5, "samples": 5, "median_ms": 930.114},
+    {"id": "provider_fake_sse", "passed": 5, "samples": 5, "median_ms": 4301.32},
+    {"id": "release_contract_tests", "passed": 5, "samples": 5, "median_ms": 10164.889}
+  ],
+  "platform_results": {
+    "windows": {"passed": 1006, "skipped": 1, "elapsed_seconds": 72.74},
+    "wsl_ubuntu_24_04": {"passed": 1007, "skipped": 0, "elapsed_seconds": 62.79}
+  },
+  "wheel": {"version": "0.4.0", "build": "passed", "isolated_install": "passed"},
+  "live_provider": {"executed": false},
+  "claim_boundary": "fixture_only_not_live_provider_or_model_quality"
+}

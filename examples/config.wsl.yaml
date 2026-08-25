@@ -1,0 +1,30 @@
+# Copy this file to .mewcode/config.local.yaml or ~/.mewcode/config.yaml.
+# Keep API keys out of YAML; export OPENAI_API_KEY or ANTHROPIC_API_KEY in WSL.
+providers:
+  - name: primary
+    # openai = Responses API; anthropic = Messages API;
+    # openai-compat = Chat Completions compatible endpoint.
+    protocol: openai
+    base_url: https://api.openai.com/v1
+    model: replace-with-your-model-id
+    api_key_env: OPENAI_API_KEY
+    auth: required
+    thinking: false
+    context_window: 0
+    max_output_tokens: 0
+
+permission_mode: default
+enable_fork: false
+enable_verification_agent: true
+teammate_mode: in-process
+enable_coordinator_mode: false
+
+worktree:
+  symlink_directories:
+    - node_modules
+    - vendor
+  stale_cleanup_interval: 3600
+  stale_cutoff_hours: 24
+
+mcp_servers: []
+hooks: []
