@@ -247,6 +247,12 @@ def _safe_revision(value: str) -> str:
     return result[:80] or "unversioned"
 
 
+def _absolute_executable(value: str) -> str:
+    """Return an absolute command path without dereferencing venv symlinks."""
+
+    return str(Path(value).expanduser().absolute())
+
+
 def _write_fixtures(
     fixtures_dir: Path, *, provider_base_url: str
 ) -> tuple[Path, Path, dict[str, str]]:
@@ -554,7 +560,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         run_dir / "fixtures", provider_base_url=fake_sse.base_url
     )
 
-    python = str(Path(args.python_executable).resolve())
+    # On POSIX, ``.venv/bin/python`` is commonly a symlink to the base
+    # interpreter.  Resolving it discards the virtual-environment path, so
+    # child commands can no longer import the locked dependencies.
+    python = _absolute_executable(args.python_executable)
     command_log = run_dir / "commands.jsonl"
     command_log.touch()
     environment = dict(os.environ)
