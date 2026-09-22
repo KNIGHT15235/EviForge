@@ -1,0 +1,35 @@
+# 复制到目标项目的 .likecc/config.yaml 后，替换服务地址和模型名称。
+# 本示例不包含真实凭据，也不会自动选择或下载模型。
+providers:
+  - name: primary
+    # 可选：anthropic、openai、openai-compat。
+    protocol: openai-compat
+    base_url: "https://YOUR_PROVIDER_HOST/v1"
+    model: "YOUR_MODEL"
+    # 留空时，openai / openai-compat 读取 OPENAI_API_KEY；
+    # anthropic 读取 ANTHROPIC_API_KEY。
+    api_key: ""
+    thinking: false
+    # 0 表示未显式指定；已知模型限制时，填写服务支持的 token 数。
+    context_window: 0
+    max_output_tokens: 0
+
+# 默认需要确认的操作，在后台子 Agent 中不会自动获得批准。
+permission_mode: default
+
+# 不指定 subagent_type 时，开启此项才能 Fork 当前对话。
+enable_fork: false
+enable_verification_agent: false
+
+# 使用进程内队友，便于在不同终端环境中复现。
+teammate_mode: in-process
+enable_coordinator_mode: false
+
+# 按需接入自己信任的 MCP 服务和 Hook。
+mcp_servers: []
+hooks: []
+
+worktree:
+  symlink_directories: []
+  stale_cleanup_interval: 3600
+  stale_cutoff_hours: 24

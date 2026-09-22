@@ -1,0 +1,29 @@
+# Local configuration and runtime data
+.likecc/
+.env
+.env.*
+!.env.example
+config.yaml
+config.local.yaml
+.claude/
+CLAUDE.md
+
+# Python and test artifacts
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+audit/
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

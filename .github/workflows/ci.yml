@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      UV_PYTHON: "3.11"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install uv
+        run: python -m pip install uv==0.11.8
+      - name: Install locked dependencies
+        run: uv sync --locked --group dev
+      - name: Run offline tests
+        run: uv run --no-sync python -m pytest -q
+      - name: Verify SubAgent components
+        run: uv run --no-sync python tests/verify_subagent.py
+      - name: Build distributions
+        run: uv build --no-sources
+      - name: Install and verify the wheel outside the checkout
+        run: |
+          uv export --locked --no-dev --no-emit-project --output-file "$RUNNER_TEMP/likecc-requirements.txt"
+          uv venv --python 3.11 "$RUNNER_TEMP/likecc-wheel"
+          uv pip install --python "$RUNNER_TEMP/likecc-wheel/bin/python" --require-hashes -r "$RUNNER_TEMP/likecc-requirements.txt"
+          uv pip install --python "$RUNNER_TEMP/likecc-wheel/bin/python" --no-deps dist/*.whl
+          "$RUNNER_TEMP/likecc-wheel/bin/python" scripts/check_distribution.py
