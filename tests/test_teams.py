@@ -14,36 +14,36 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from likecc.teams.models import (
+from eviforge.teams.models import (
     AgentTeam,
     BackendType,
     TeammateInfo,
     resolve_team_dir,
     unique_team_name,
 )
-from likecc.teams.shared_task import SharedTask, SharedTaskStore
-from likecc.teams.mailbox import Mailbox, MailboxMessage, create_message
-from likecc.teams.registry import AgentNameRegistry
-from likecc.teams.backend_detect import (
+from eviforge.teams.shared_task import SharedTask, SharedTaskStore
+from eviforge.teams.mailbox import Mailbox, MailboxMessage, create_message
+from eviforge.teams.registry import AgentNameRegistry
+from eviforge.teams.backend_detect import (
     BackendDetectionError,
     detect_backend,
     detect_pane_backend,
 )
-from likecc.teams.coordinator import (
+from eviforge.teams.coordinator import (
     get_coordinator_system_prompt,
     get_coordinator_user_context,
     is_coordinator_mode,
     match_session_mode,
 )
-from likecc.agents.tool_filter import (
+from eviforge.agents.tool_filter import (
     COORDINATOR_MODE_ALLOWED_TOOLS,
     IN_PROCESS_TEAMMATE_ALLOWED_TOOLS,
     TEAMMATE_COORDINATION_TOOLS,
     build_teammate_tools,
     apply_coordinator_filter,
 )
-from likecc.tools import ToolRegistry
-from likecc.tools.base import Tool, ToolResult
+from eviforge.tools import ToolRegistry
+from eviforge.tools.base import Tool, ToolResult
 
 # =====================================================================
 # 辅助工具
@@ -170,10 +170,10 @@ class TestModels:
         assert team.all_idle() is False
 
     def test_unique_team_name(self, tmp_dir):
-        with patch("likecc.teams.models.Path.home", return_value=Path(tmp_dir)):
+        with patch("eviforge.teams.models.Path.home", return_value=Path(tmp_dir)):
             name1 = unique_team_name("my-team")
             assert name1 == "my-team"
-            (Path(tmp_dir) / ".likecc" / "teams" / "my-team").mkdir(parents=True)
+            (Path(tmp_dir) / ".eviforge" / "teams" / "my-team").mkdir(parents=True)
             name2 = unique_team_name("my-team")
             assert name2 == "my-team-2"
 
@@ -360,7 +360,7 @@ class TestBackendDetect:
     def test_iterm2_with_it2(self):
         env = {"TERM_PROGRAM": "iTerm.app"}
         with patch.dict(os.environ, env, clear=False):
-            with patch("likecc.teams.backend_detect.shutil.which") as mock_which:
+            with patch("eviforge.teams.backend_detect.shutil.which") as mock_which:
                 def which_side_effect(cmd):
                     if cmd == "it2":
                         return "/usr/local/bin/it2"
@@ -377,7 +377,7 @@ class TestBackendDetect:
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("TMUX", None)
             os.environ.pop("TERM_PROGRAM", None)
-            with patch("likecc.teams.backend_detect.shutil.which") as mock_which:
+            with patch("eviforge.teams.backend_detect.shutil.which") as mock_which:
                 mock_which.return_value = "/usr/bin/tmux"
                 result = detect_pane_backend()
                 assert result == BackendType.TMUX
@@ -386,7 +386,7 @@ class TestBackendDetect:
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("TMUX", None)
             os.environ.pop("TERM_PROGRAM", None)
-            with patch("likecc.teams.backend_detect.shutil.which", return_value=None):
+            with patch("eviforge.teams.backend_detect.shutil.which", return_value=None):
                 with pytest.raises(BackendDetectionError):
                     detect_pane_backend()
 
@@ -447,16 +447,16 @@ class TestCoordinatorMode:
         assert is_coordinator_mode(enable_flag=False) is False
 
     def test_enabled_with_flag_and_env(self):
-        with patch.dict(os.environ, {"LIKECC_COORDINATOR_MODE": "1"}):
+        with patch.dict(os.environ, {"EVIFORGE_COORDINATOR_MODE": "1"}):
             assert is_coordinator_mode(enable_flag=True) is True
 
     def test_flag_without_env(self):
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("LIKECC_COORDINATOR_MODE", None)
+            os.environ.pop("EVIFORGE_COORDINATOR_MODE", None)
             assert is_coordinator_mode(enable_flag=True) is False
 
     def test_env_without_flag(self):
-        with patch.dict(os.environ, {"LIKECC_COORDINATOR_MODE": "1"}):
+        with patch.dict(os.environ, {"EVIFORGE_COORDINATOR_MODE": "1"}):
             assert is_coordinator_mode(enable_flag=False) is False
 
     def test_system_prompt_contains_phases(self):
@@ -482,17 +482,17 @@ class TestCoordinatorMode:
         assert "<task-id>" in prompt
 
     def test_match_session_mode_no_switch(self):
-        with patch.dict(os.environ, {"LIKECC_COORDINATOR_MODE": "1"}):
+        with patch.dict(os.environ, {"EVIFORGE_COORDINATOR_MODE": "1"}):
             result = match_session_mode("coordinator", enable_flag=True)
             assert result is None
 
     def test_match_session_mode_switch_to_coordinator(self):
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("LIKECC_COORDINATOR_MODE", None)
+            os.environ.pop("EVIFORGE_COORDINATOR_MODE", None)
             result = match_session_mode("coordinator", enable_flag=True)
             assert result is not None
             assert "Entered" in result
-            assert os.environ.get("LIKECC_COORDINATOR_MODE") == "1"
+            assert os.environ.get("EVIFORGE_COORDINATOR_MODE") == "1"
 
     def test_match_session_mode_none(self):
         result = match_session_mode(None)
@@ -509,13 +509,13 @@ class TestCoordinatorMode:
 
 class TestConfigExtensions:
     def test_teammate_mode_defaults(self):
-        from likecc.config import AppConfig
+        from eviforge.config import AppConfig
         cfg = AppConfig(providers=[])
         assert cfg.teammate_mode == ""
         assert cfg.enable_coordinator_mode is False
 
     def test_load_config_with_team_fields(self, tmp_dir):
-        from likecc.config import load_config
+        from eviforge.config import load_config
         config_path = Path(tmp_dir) / "config.yaml"
         config_path.write_text(
             "providers:\n"
@@ -531,7 +531,7 @@ class TestConfigExtensions:
         assert cfg.enable_coordinator_mode is True
 
     def test_invalid_teammate_mode(self, tmp_dir):
-        from likecc.config import ConfigError, load_config
+        from eviforge.config import ConfigError, load_config
         config_path = Path(tmp_dir) / "config.yaml"
         config_path.write_text(
             "providers:\n"
@@ -551,14 +551,14 @@ class TestConfigExtensions:
 class TestTranscript:
 
     def test_save_and_load(self, tmp_dir):
-        from likecc.conversation import ConversationManager
-        from likecc.teams.transcript import load_transcript, save_transcript
+        from eviforge.conversation import ConversationManager
+        from eviforge.teams.transcript import load_transcript, save_transcript
 
         conv = ConversationManager()
         conv.add_user_message("Hello agent")
         conv.add_assistant_message("Hello user")
 
-        with patch("likecc.teams.models.Path.home", return_value=Path(tmp_dir)):
+        with patch("eviforge.teams.models.Path.home", return_value=Path(tmp_dir)):
             save_transcript("test-team", "agent-001", conv)
             restored = load_transcript("test-team", "agent-001")
 
@@ -569,8 +569,8 @@ class TestTranscript:
         assert restored.history[1].role == "assistant"
 
     def test_load_nonexistent(self, tmp_dir):
-        from likecc.teams.transcript import load_transcript
-        with patch("likecc.teams.models.Path.home", return_value=Path(tmp_dir)):
+        from eviforge.teams.transcript import load_transcript
+        with patch("eviforge.teams.models.Path.home", return_value=Path(tmp_dir)):
             result = load_transcript("no-team", "no-agent")
         assert result is None
 
@@ -580,19 +580,19 @@ class TestTranscript:
 
 class TestAgentCoordinatorIntegration:
     def test_normal_prompt(self):
-        from likecc.prompts import IDENTITY_SECTION, build_system_prompt
+        from eviforge.prompts import IDENTITY_SECTION, build_system_prompt
         prompt = build_system_prompt()
         assert IDENTITY_SECTION.content in prompt
 
     def test_coordinator_prompt(self):
-        from likecc.prompts import build_system_prompt
+        from eviforge.prompts import build_system_prompt
         prompt = build_system_prompt(coordinator_mode=True)
         assert "coordinator" in prompt.lower()
         assert "Research" in prompt
         assert "Synthesis" in prompt
 
     def test_coordinator_overrides_plan(self):
-        from likecc.prompts import build_plan_mode_reminder, build_system_prompt
+        from eviforge.prompts import build_plan_mode_reminder, build_system_prompt
         prompt = build_system_prompt(coordinator_mode=True)
         plan_reminder = build_plan_mode_reminder("/tmp/plan.md", False, 1)
         assert plan_reminder.splitlines()[0] not in prompt

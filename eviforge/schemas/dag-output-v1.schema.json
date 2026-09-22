@@ -1,0 +1,276 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "size",
+        "path",
+        "run_id",
+        "node_id",
+        "attempt"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "CheckResult": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "passed": {
+          "title": "Passed",
+          "type": "boolean"
+        },
+        "details": {
+          "title": "Details",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "passed",
+        "details"
+      ],
+      "title": "CheckResult",
+      "type": "object"
+    },
+    "ExplorerOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "explorer",
+          "title": "Role",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "summary",
+        "findings"
+      ],
+      "title": "ExplorerOutput",
+      "type": "object"
+    },
+    "ImplementerOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "implementer",
+          "title": "Role",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "changes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Changes",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "summary",
+        "changes"
+      ],
+      "title": "ImplementerOutput",
+      "type": "object"
+    },
+    "IntegratorOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "integrator",
+          "title": "Role",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "implementation_refs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Implementation Refs",
+          "type": "array"
+        },
+        "verification_refs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Verification Refs",
+          "type": "array"
+        },
+        "changes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Changes",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "summary",
+        "implementation_refs",
+        "verification_refs"
+      ],
+      "title": "IntegratorOutput",
+      "type": "object"
+    },
+    "VerifierOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "verifier",
+          "title": "Role",
+          "type": "string"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "implementation_refs": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Implementation Refs",
+          "type": "array"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/CheckResult"
+          },
+          "minItems": 1,
+          "title": "Checks",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "summary",
+        "implementation_refs",
+        "verdict",
+        "checks"
+      ],
+      "title": "VerifierOutput",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "explorer": "#/$defs/ExplorerOutput",
+      "implementer": "#/$defs/ImplementerOutput",
+      "integrator": "#/$defs/IntegratorOutput",
+      "verifier": "#/$defs/VerifierOutput"
+    },
+    "propertyName": "role"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ExplorerOutput"
+    },
+    {
+      "$ref": "#/$defs/ImplementerOutput"
+    },
+    {
+      "$ref": "#/$defs/VerifierOutput"
+    },
+    {
+      "$ref": "#/$defs/IntegratorOutput"
+    }
+  ]
+}

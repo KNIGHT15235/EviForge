@@ -1,5 +1,5 @@
 # Local configuration and runtime data
-.likecc/
+.eviforge/
 .env
 .env.*
 !.env.example

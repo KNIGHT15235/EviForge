@@ -11,24 +11,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from likecc.skills.parser import (
+from eviforge.skills.parser import (
     SkillDef,
     SkillParseError,
     parse_frontmatter,
     parse_skill_file,
     substitute_arguments,
 )
-from likecc.skills.loader import SkillLoader
-from likecc.skills.executor import (
+from eviforge.skills.loader import SkillLoader
+from eviforge.skills.executor import (
     SkillDependencyError,
     SkillExecutor,
     filter_fork_tool_registry,
     filter_tool_registry,
 )
-from likecc.client import LLMClient
-from likecc.conversation import ConversationManager
-from likecc.tools import ToolRegistry
-from likecc.tools.base import (
+from eviforge.client import LLMClient
+from eviforge.conversation import ConversationManager
+from eviforge.tools import ToolRegistry
+from eviforge.tools.base import (
     StreamEnd,
     StreamEvent,
     TextDelta,
@@ -96,7 +96,7 @@ class FakeTool(Tool):
         self.execution_work_dirs: list[str] = []
 
     async def execute(self, params) -> ToolResult:
-        from likecc.tools.work_dir import get_tool_work_dir
+        from eviforge.tools.work_dir import get_tool_work_dir
 
         self.executions += 1
         self.execution_work_dirs.append(str(get_tool_work_dir()))
@@ -252,7 +252,7 @@ class TestSkillLoader:
         assert skills["review"].mode == "fork"
 
     def test_project_overrides_builtin(self, tmp_path: Path) -> None:
-        skills_dir = tmp_path / ".likecc" / "skills"
+        skills_dir = tmp_path / ".eviforge" / "skills"
         skills_dir.mkdir(parents=True)
         custom = skills_dir / "commit.md"
         custom.write_text(textwrap.dedent("""\
@@ -290,7 +290,7 @@ class TestSkillLoader:
         assert loader.get("nonexistent") is None
 
     def test_hot_reload(self, tmp_path: Path) -> None:
-        skills_dir = tmp_path / ".likecc" / "skills"
+        skills_dir = tmp_path / ".eviforge" / "skills"
         skills_dir.mkdir(parents=True)
         f = skills_dir / "custom.md"
         f.write_text(textwrap.dedent("""\
@@ -316,7 +316,7 @@ class TestSkillLoader:
         assert "v2" in skill.prompt_body
 
     def test_hot_reload_fallback_on_error(self, tmp_path: Path) -> None:
-        skills_dir = tmp_path / ".likecc" / "skills"
+        skills_dir = tmp_path / ".eviforge" / "skills"
         skills_dir.mkdir(parents=True)
         f = skills_dir / "custom.md"
         f.write_text(textwrap.dedent("""\
@@ -335,7 +335,7 @@ class TestSkillLoader:
         assert skill.description == "good"
 
     def test_directory_skill_detected(self, tmp_path: Path) -> None:
-        skills_dir = tmp_path / ".likecc" / "skills"
+        skills_dir = tmp_path / ".eviforge" / "skills"
         skill_dir = skills_dir / "my-skill"
         skill_dir.mkdir(parents=True)
         skill_md = skill_dir / "SKILL.md"
@@ -358,7 +358,7 @@ class TestSkillLoader:
         assert loader.get_source_label("nonexistent") == "unknown"
 
     def test_malformed_file_skipped(self, tmp_path: Path) -> None:
-        skills_dir = tmp_path / ".likecc" / "skills"
+        skills_dir = tmp_path / ".eviforge" / "skills"
         skills_dir.mkdir(parents=True)
         bad = skills_dir / "broken.md"
         bad.write_text("not valid frontmatter")
@@ -419,7 +419,7 @@ class TestFilterToolRegistry:
     async def test_fork_filter_blocks_parent_control_and_rebinds_tool_search(
         self,
     ) -> None:
-        from likecc.tools.impl.tool_search import ToolSearchParams, ToolSearchTool
+        from eviforge.tools.impl.tool_search import ToolSearchParams, ToolSearchTool
 
         registry = ToolRegistry()
         registry.register(FakeTool("ReadFile"))
@@ -468,7 +468,7 @@ class TestSkillForkPermissions:
 
     @staticmethod
     def _checker(root: Path, mode, *, extra_patterns=None):
-        from likecc.permissions import (
+        from eviforge.permissions import (
             DangerousCommandDetector,
             PathSandbox,
             PermissionChecker,
@@ -487,7 +487,7 @@ class TestSkillForkPermissions:
         self, tmp_path: Path
     ) -> None:
         """An unobserved `ask` is denied promptly instead of hanging forever."""
-        from likecc.agent import Agent
+        from eviforge.agent import Agent
 
         tool = FakeTool("WriteFile", category="write")
         registry = ToolRegistry()
@@ -511,8 +511,8 @@ class TestSkillForkPermissions:
     async def test_fork_inherits_custom_dangerous_command_detector(
         self, tmp_path: Path
     ) -> None:
-        from likecc.agent import Agent
-        from likecc.permissions import PermissionMode
+        from eviforge.agent import Agent
+        from eviforge.permissions import PermissionMode
 
         tool = FakeTool("Bash", category="command")
         registry = ToolRegistry()
@@ -544,8 +544,8 @@ class TestSkillForkPermissions:
     async def test_fork_inherits_path_sandbox_even_in_bypass_mode(
         self, tmp_path: Path
     ) -> None:
-        from likecc.agent import Agent
-        from likecc.permissions import PermissionMode
+        from eviforge.agent import Agent
+        from eviforge.permissions import PermissionMode
 
         tool = FakeTool("WriteFile", category="write")
         registry = ToolRegistry()
@@ -553,7 +553,7 @@ class TestSkillForkPermissions:
         client = ScriptedClient(
             _tool_then_finish(
                 "WriteFile",
-                {"file_path": "/etc/likecc-skill-outside.txt", "content": "x"},
+                {"file_path": "/etc/eviforge-skill-outside.txt", "content": "x"},
             )
         )
         checker = self._checker(tmp_path, PermissionMode.BYPASS)
@@ -576,8 +576,8 @@ class TestSkillForkPermissions:
     async def test_fork_work_dir_and_policy_are_snapshotted_before_parent_rebase(
         self, tmp_path: Path
     ) -> None:
-        from likecc.agent import Agent
-        from likecc.permissions import PermissionMode
+        from eviforge.agent import Agent
+        from eviforge.permissions import PermissionMode
 
         old_root = tmp_path / "old"
         new_root = tmp_path / "new"
@@ -623,8 +623,8 @@ class TestSkillForkPermissions:
     async def test_plan_mode_allow_rule_cannot_enable_fork_write(
         self, tmp_path: Path
     ) -> None:
-        from likecc.agent import Agent
-        from likecc.permissions import (
+        from eviforge.agent import Agent
+        from eviforge.permissions import (
             DangerousCommandDetector,
             PathSandbox,
             PermissionChecker,
@@ -671,7 +671,7 @@ class TestSkillForkPermissions:
 
 class TestDirectorySkill:
     def test_parse_tool_json(self, tmp_path: Path) -> None:
-        from likecc.skills.directory import parse_tool_json
+        from eviforge.skills.directory import parse_tool_json
 
         tool_json = tmp_path / "tool.json"
         tool_json.write_text(json.dumps([
@@ -686,7 +686,7 @@ class TestDirectorySkill:
         assert schemas[0]["name"] == "my_tool"
 
     def test_parse_tool_json_single_object(self, tmp_path: Path) -> None:
-        from likecc.skills.directory import parse_tool_json
+        from eviforge.skills.directory import parse_tool_json
 
         tool_json = tmp_path / "tool.json"
         tool_json.write_text(json.dumps({
@@ -698,7 +698,7 @@ class TestDirectorySkill:
         assert len(schemas) == 1
 
     def test_register_skill_tools(self, tmp_path: Path) -> None:
-        from likecc.skills.directory import register_skill_tools
+        from eviforge.skills.directory import register_skill_tools
 
         skill_dir = tmp_path / "my-skill"
         skill_dir.mkdir()
@@ -721,7 +721,7 @@ class TestDirectorySkill:
         assert registry.get("my_tool") is not None
 
     def test_register_no_tool_json(self, tmp_path: Path) -> None:
-        from likecc.skills.directory import register_skill_tools
+        from eviforge.skills.directory import register_skill_tools
 
         registry = ToolRegistry()
         count = register_skill_tools(tmp_path, registry)
@@ -729,7 +729,7 @@ class TestDirectorySkill:
 
     @pytest.mark.asyncio
     async def test_custom_tool_execution(self, tmp_path: Path) -> None:
-        from likecc.skills.directory import register_skill_tools
+        from eviforge.skills.directory import register_skill_tools
 
         skill_dir = tmp_path / "skill"
         skill_dir.mkdir()
@@ -770,7 +770,7 @@ class TestDirectorySkill:
 class TestLoadSkillTool:
     @pytest.mark.asyncio
     async def test_load_existing_skill(self) -> None:
-        from likecc.tools.load_skill import LoadSkill, LoadSkillParams
+        from eviforge.tools.load_skill import LoadSkill, LoadSkillParams
 
         tool = LoadSkill()
         loader = MagicMock()
@@ -795,7 +795,7 @@ class TestLoadSkillTool:
 
     @pytest.mark.asyncio
     async def test_load_unknown_skill(self) -> None:
-        from likecc.tools.load_skill import LoadSkill, LoadSkillParams
+        from eviforge.tools.load_skill import LoadSkill, LoadSkillParams
 
         tool = LoadSkill()
         loader = MagicMock()
@@ -812,7 +812,7 @@ class TestLoadSkillTool:
 
     @pytest.mark.asyncio
     async def test_not_initialized(self) -> None:
-        from likecc.tools.load_skill import LoadSkill, LoadSkillParams
+        from eviforge.tools.load_skill import LoadSkill, LoadSkillParams
 
         tool = LoadSkill()
         result = await tool.execute(LoadSkillParams(name="test"))
@@ -820,7 +820,7 @@ class TestLoadSkillTool:
         assert "not properly initialized" in result.output
 
     def test_is_system_tool(self) -> None:
-        from likecc.tools.load_skill import LoadSkill
+        from eviforge.tools.load_skill import LoadSkill
 
         tool = LoadSkill()
         assert tool.is_system_tool is True
@@ -832,8 +832,8 @@ class TestLoadSkillTool:
 
 class TestAgentSkillIntegration:
     def test_activate_and_clear(self) -> None:
-        from likecc.agent import Agent
-        from likecc.prompts import build_environment_context
+        from eviforge.agent import Agent
+        from eviforge.prompts import build_environment_context
 
         env = build_environment_context(
             "/test",
@@ -846,7 +846,7 @@ class TestAgentSkillIntegration:
         assert "Available: commit" in env
 
     def test_empty_active_skills(self) -> None:
-        from likecc.prompts import build_environment_context
+        from eviforge.prompts import build_environment_context
 
         env = build_environment_context("/test")
         assert "Active Skills" not in env
@@ -855,7 +855,7 @@ class TestAgentSkillIntegration:
         agent = MagicMock()
         agent.active_skills = {}
 
-        from likecc.agent import Agent
+        from eviforge.agent import Agent
 
         real_agent = MagicMock(spec=Agent)
         real_agent.active_skills = {}

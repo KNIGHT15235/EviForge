@@ -11,21 +11,21 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from likecc.agent import Agent
-from likecc.agents.fork import FORK_BOILERPLATE_TAG, build_forked_messages
-from likecc.agents.parser import AgentDef
-from likecc.agents.notification import format_task_notification
-from likecc.agents.task_manager import TaskManager
-from likecc.agents.trace import TraceManager
-from likecc.cache import FileCache
-from likecc.conversation import ConversationManager, ToolResultBlock, ToolUseBlock
-from likecc.permissions import (
+from eviforge.agent import Agent
+from eviforge.agents.fork import FORK_BOILERPLATE_TAG, build_forked_messages
+from eviforge.agents.parser import AgentDef
+from eviforge.agents.notification import format_task_notification
+from eviforge.agents.task_manager import TaskManager
+from eviforge.agents.trace import TraceManager
+from eviforge.cache import FileCache
+from eviforge.conversation import ConversationManager, ToolResultBlock, ToolUseBlock
+from eviforge.permissions import (
     DangerousCommandDetector, PathSandbox, PermissionChecker, PermissionMode, RuleEngine,
 )
-from likecc.tools import create_default_registry
-from likecc.tools.agent_tool import AgentTool, AgentToolParams
-from likecc.tools.base import StreamEnd, TextDelta, ToolCallComplete
-from likecc.tools.load_skill import LoadSkill
+from eviforge.tools import create_default_registry
+from eviforge.tools.agent_tool import AgentTool, AgentToolParams
+from eviforge.tools.base import StreamEnd, TextDelta, ToolCallComplete
+from eviforge.tools.load_skill import LoadSkill
 
 
 class RecordingClient:

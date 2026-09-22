@@ -1,0 +1,63 @@
+
+from __future__ import annotations
+
+import inspect
+import json
+from typing import Any, Callable
+
+from pydantic import BaseModel
+
+from eviforge.tools.base import Tool, ToolResult
+
+
+class ExitPlanModeParams(BaseModel):
+    actions: list[dict[str, Any]] | None = None
+
+
+class ExitPlanModeTool(Tool):
+    name = "ExitPlanMode"
+    description = (
+        "Exit plan mode and present the plan for user approval. "
+        "Call this when your plan is complete and written to the plan file."
+    )
+    params_model = ExitPlanModeParams
+    category = "read"
+
+    def __init__(
+        self,
+        is_plan_mode: Callable[[], bool] | None = None,
+        plan_exists: Callable[[], bool] | None = None,
+        submit_plan: Callable[[list[dict[str, Any]] | None], Any] | None = None,
+    ) -> None:
+        self._is_plan_mode = is_plan_mode
+        self._plan_exists = plan_exists
+        self._submit_plan = submit_plan
+
+    async def execute(self, params: ExitPlanModeParams) -> ToolResult:
+        if self._is_plan_mode is not None and not self._is_plan_mode():
+            return ToolResult(
+                output="You are not in plan mode. This tool is only for exiting plan mode after writing a plan.",
+                is_error=True,
+            )
+        if self._plan_exists is not None and not self._plan_exists():
+            return ToolResult(
+                output="No plan file found. Please write your plan to the plan file before calling ExitPlanMode.",
+                is_error=True,
+            )
+        if self._submit_plan is not None:
+            try:
+                plan = self._submit_plan(params.actions)
+                if inspect.isawaitable(plan):
+                    plan = await plan
+                return ToolResult(json.dumps({"status": "approval_required", "plan_id": plan.plan_id,
+                    "content_hash": plan.content_hash, "session_id": plan.session_id,
+                    "source_turn_id": plan.source_turn_id}, ensure_ascii=False))
+            except (ValueError, OSError) as exc:
+                return ToolResult(f"PLAN_SUBMISSION_FAILED: {exc}", is_error=True)
+        return ToolResult(
+            output=(
+                "Plan mode will be exited after this turn. "
+                "The user will be shown the plan approval dialog. "
+                "Do not call any more tools — end your turn now."
+            )
+        )

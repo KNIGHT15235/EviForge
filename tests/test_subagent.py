@@ -11,24 +11,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from likecc.agents.parser import AgentDef, AgentParseError, parse_agent_file, parse_frontmatter
-from likecc.agents.loader import AgentLoader
-from likecc.agents.tool_filter import (
+from eviforge.agents.parser import AgentDef, AgentParseError, parse_agent_file, parse_frontmatter
+from eviforge.agents.loader import AgentLoader
+from eviforge.agents.tool_filter import (
     ALL_AGENT_DISALLOWED_TOOLS,
     ASYNC_AGENT_ALLOWED_TOOLS,
     resolve_agent_tools,
 )
-from likecc.agents.fork import (
+from eviforge.agents.fork import (
     FORK_BOILERPLATE_TAG,
     ForkError,
     build_forked_messages,
 )
-from likecc.agents.trace import TraceManager, TraceNode
-from likecc.agents.task_manager import BackgroundTask, TaskManager
-from likecc.agents.notification import format_task_notification, inject_task_notifications
-from likecc.conversation import ConversationManager, Message, ToolResultBlock, ToolUseBlock
-from likecc.tools import ToolRegistry
-from likecc.tools.base import Tool, ToolResult
+from eviforge.agents.trace import TraceManager, TraceNode
+from eviforge.agents.task_manager import BackgroundTask, TaskManager
+from eviforge.agents.notification import format_task_notification, inject_task_notifications
+from eviforge.conversation import ConversationManager, Message, ToolResultBlock, ToolUseBlock
+from eviforge.tools import ToolRegistry
+from eviforge.tools.base import Tool, ToolResult
 
 # =====================================================================
 # 辅助函数
@@ -205,7 +205,7 @@ class TestAgentLoader:
         assert "Verification" in agents
 
     def test_project_overrides_builtin(self, tmp_path: Path):
-        agents_dir = tmp_path / ".likecc" / "agents"
+        agents_dir = tmp_path / ".eviforge" / "agents"
         agents_dir.mkdir(parents=True)
         custom_md = make_agent_md(
             name="Explore",
@@ -241,7 +241,7 @@ class TestAgentLoader:
         assert "general-purpose" in names
 
     def test_hot_reload(self, tmp_path: Path):
-        agents_dir = tmp_path / ".likecc" / "agents"
+        agents_dir = tmp_path / ".eviforge" / "agents"
         agents_dir.mkdir(parents=True)
         f = agents_dir / "custom.md"
         f.write_text(make_agent_md(name="custom", description="v1"))
@@ -254,7 +254,7 @@ class TestAgentLoader:
         assert loader.get("custom").when_to_use == "v2"
 
     def test_bad_file_skipped(self, tmp_path: Path):
-        agents_dir = tmp_path / ".likecc" / "agents"
+        agents_dir = tmp_path / ".eviforge" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "bad.md").write_text("no frontmatter")
         (agents_dir / "good.md").write_text(
@@ -664,7 +664,7 @@ class TestNotification:
 
 class TestConfig:
     def test_enable_fork_default(self, tmp_path: Path):
-        from likecc.config import load_config
+        from eviforge.config import load_config
         cfg = tmp_path / "config.yaml"
         cfg.write_text(textwrap.dedent("""\
         providers:
@@ -678,7 +678,7 @@ class TestConfig:
         assert config.enable_verification_agent is False
 
     def test_enable_fork_true(self, tmp_path: Path):
-        from likecc.config import load_config
+        from eviforge.config import load_config
         cfg = tmp_path / "config.yaml"
         cfg.write_text(textwrap.dedent("""\
         providers:
@@ -699,7 +699,7 @@ class TestConfig:
 
 class TestPermissionMode:
     def test_dont_ask_mode(self):
-        from likecc.permissions.modes import PermissionMode, mode_decide
+        from eviforge.permissions.modes import PermissionMode, mode_decide
         assert PermissionMode.DONT_ASK.value == "dontAsk"
         assert mode_decide(PermissionMode.DONT_ASK, "read") == "allow"
         assert mode_decide(PermissionMode.DONT_ASK, "write") == "allow"
@@ -711,14 +711,14 @@ class TestPermissionMode:
 
 class TestAgentToolParams:
     def test_required_fields(self):
-        from likecc.tools.agent_tool import AgentToolParams
+        from eviforge.tools.agent_tool import AgentToolParams
         params = AgentToolParams(prompt="do this", description="test")
         assert params.prompt == "do this"
         assert params.subagent_type is None
         assert params.run_in_background is False
 
     def test_optional_fields(self):
-        from likecc.tools.agent_tool import AgentToolParams
+        from eviforge.tools.agent_tool import AgentToolParams
         params = AgentToolParams(
             prompt="do",
             description="test",
@@ -736,8 +736,8 @@ class TestAgentToolParams:
 
     @pytest.mark.asyncio
     async def test_plan_rejects_custom_isolated_alias_before_worktree_creation(self):
-        from likecc.permissions import PermissionMode
-        from likecc.tools.agent_tool import AgentTool, AgentToolParams
+        from eviforge.permissions import PermissionMode
+        from eviforge.tools.agent_tool import AgentTool, AgentToolParams
 
         loader = MagicMock()
         loader.get.return_value = AgentDef(
@@ -775,7 +775,7 @@ class TestAgentToolParams:
 
 class TestAgentExtensions:
     def test_agent_has_id(self):
-        from likecc.agent import Agent
+        from eviforge.agent import Agent
         client = MagicMock()
         registry = ToolRegistry()
         agent = Agent(client=client, registry=registry, protocol="anthropic")
@@ -785,7 +785,7 @@ class TestAgentExtensions:
         assert agent.trace_id is None
 
     def test_agent_catalog(self):
-        from likecc.agent import Agent
+        from eviforge.agent import Agent
         client = MagicMock()
         registry = ToolRegistry()
         agent = Agent(client=client, registry=registry, protocol="anthropic")

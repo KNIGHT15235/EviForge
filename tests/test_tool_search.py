@@ -10,11 +10,11 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import BaseModel
 
-from likecc.agent import Agent
-from likecc.client import LLMClient
-from likecc.conversation import ConversationManager
-from likecc.tools import ToolRegistry
-from likecc.tools.base import (
+from eviforge.agent import Agent
+from eviforge.client import LLMClient
+from eviforge.conversation import ConversationManager
+from eviforge.tools import ToolRegistry
+from eviforge.tools.base import (
     StreamEnd,
     StreamEvent,
     TextDelta,
@@ -22,8 +22,8 @@ from likecc.tools.base import (
     ToolCallComplete,
     ToolResult,
 )
-from likecc.tools.enter_worktree import EnterWorktreeTool
-from likecc.tools.impl.tool_search import ToolSearchTool
+from eviforge.tools.enter_worktree import EnterWorktreeTool
+from eviforge.tools.impl.tool_search import ToolSearchTool
 
 # ---------------------------------------------------------------------------
 # 辅助工具
@@ -91,7 +91,7 @@ def test_mcp_tool_deferred():
 
     mock_client = MagicMock()
 
-    from likecc.mcp.tool_wrapper import MCPToolWrapper
+    from eviforge.mcp.tool_wrapper import MCPToolWrapper
 
     wrapper = MCPToolWrapper(
         server_name="test_server",
@@ -116,7 +116,7 @@ async def test_tool_search_marks_discovered():
     search = ToolSearchTool(reg, protocol="anthropic")
     reg.register(search)
 
-    from likecc.tools.impl.tool_search import ToolSearchParams
+    from eviforge.tools.impl.tool_search import ToolSearchParams
 
     params = ToolSearchParams(query="select:DeferredAlpha")
     result = await search.execute(params)
@@ -164,7 +164,7 @@ async def test_tool_search_keyword():
     search = ToolSearchTool(reg, protocol="anthropic")
     reg.register(search)
 
-    from likecc.tools.impl.tool_search import ToolSearchParams
+    from eviforge.tools.impl.tool_search import ToolSearchParams
 
     params = ToolSearchParams(query="beta", max_results=5)
     result = await search.execute(params)
@@ -180,7 +180,7 @@ async def test_tool_search_no_match():
     search = ToolSearchTool(reg, protocol="anthropic")
     reg.register(search)
 
-    from likecc.tools.impl.tool_search import ToolSearchParams
+    from eviforge.tools.impl.tool_search import ToolSearchParams
 
     params = ToolSearchParams(query="nonexistent_xyz")
     result = await search.execute(params)
@@ -196,7 +196,7 @@ async def test_tool_search_select_multiple():
     search = ToolSearchTool(reg, protocol="anthropic")
     reg.register(search)
 
-    from likecc.tools.impl.tool_search import ToolSearchParams
+    from eviforge.tools.impl.tool_search import ToolSearchParams
 
     params = ToolSearchParams(query="select:DeferredAlpha,DeferredBeta")
     result = await search.execute(params)

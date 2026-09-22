@@ -1,47 +1,58 @@
-# 验证说明
+# EviForge 0.1.0 验证说明
 
-以下为 LikeCC 0.2.0 在 2026-09-22 完成的发布验证。测试使用本地 fake 模型、临时文件和临时 Git 仓库；不需要模型 API Key。
+验证日期：2026-09-22。环境：Ubuntu 24.04 / WSL。所有测试在真实项目代码上执行；模型部分使用确定性替身或真实 SDK + 本地 HTTP/SSE 响应。
 
-## 已有结果
+## 最终结果
 
-| 验证对象 | 结果 | 范围 |
-| --- | --- | --- |
-| pytest / Python 3.11.16 | 720 passed，0 skipped | 完整单元与集成回归 |
-| pytest / Python 3.12.3 | 720 passed，0 skipped | 全新锁定依赖环境中的完整回归 |
-| 独立 SubAgent 脚本 / Python 3.11 | 90/90 | Agent 定义、工具过滤、Fork、任务通知及相关契约 |
-| 安装 | `uv sync --locked --dev` 通过 | 从公开 PyPI 安装；依赖版本和文件哈希保持不变 |
-| 分发包 | wheel 与 sdist 构建通过 | 独立 Python 3.11 环境安装锁定依赖和 wheel 后，脱离源码检查 CLI、样式、4 个 Agent、4 个 Skill 及动态工具资源通过 |
-| 命名与发布文件 | 检查通过 | 模块、CLI、配置目录、指令文件、环境变量、动态资源与测试引用一致；旧标识无残留 |
+| 验证 | 结果 |
+| --- | --- |
+| Python 3.11.16 全量 pytest | **893 passed，0 failed，0 skipped**；57.37 秒 |
+| Python 3.12.3 全量 pytest | **893 passed，0 failed，0 skipped**；80.62 秒；EviForge 独立锁定依赖环境 |
+| 独立 SubAgent 检查 | **90/90**；Python 3.12.3 |
+| 安装 | `uv sync --locked --python 3.12` 成功 |
+| 分发构建 | wheel 与 sdist 成功 |
+| 脱离源码验证 | 独立 Python 3.12 环境安装锁定运行依赖及 wheel 后，CLI、Schema、内置 Agent / Skill、动态资源和无 Provider 配置的治理命令通过 |
+| 原项目完整性 | LikeCC 基线 178 文件哈希全部一致，原项目工作区无变更 |
 
-验证环境为 Ubuntu 24.04 / WSL。Provider 用例通过真实 SDK 加本地 MockTransport 验证，MCP 用例使用本地 stdio 服务；没有调用真实模型服务或外部 MCP 服务。公开版本不包含开发机器上的审计备份、私有配置和运行日志。
+893 项包含保留的 720 项 LikeCC 回归和 173 项新增验收。原测试仅随项目重命名更新引用，并调整 SDK 重试构造测试替身，以及将旧 Hook Agent 空实现断言改为“无运行时不能执行”；不通过删除原有断言或跳过功能取得通过。
 
-## 本地复现
+机器统计和逐测试模块数量见 [validation-results.json](validation-results.json)。本地完整 JUnit 报告保存在 `.eviforge/verification/pytest311.xml`、`.eviforge/verification/pytest312.xml`，运行数据目录不纳入源码。
 
-在仓库根目录执行：
+## 覆盖范围
+
+- 原有：多 Provider、序列化、六种代码工具、ReAct、权限、Prompt、上下文预算与压缩、会话恢复、Slash Commands、Skills、Hooks、MCP、SubAgent、Fork、Team、Worktree、文件编辑隔离。
+- 计划：session / turn / 内容哈希、参数 / cwd / 路径 / origin、过期、一次性消费、拒绝优先、并发 grant、工具禁用和替换、子 Agent 上界、冻结界面审批与旧事件回放。
+- 治理：真实 SQLite、用户/项目隔离、16,000 字符含包装预算、公平注入、隔离候选不可见、验证/确认/发布、负反馈、撤销、回滚、Skill fork 与摘要/恢复附件中的撤销。
+- DAG：四角色强类型输入输出、图校验、实际 Agent、依赖并行及冲突串行、真实文件与命令、证据哈希、能力漂移、节点恢复、不重跑完成节点、可写失败拒绝重放，以及写入后审计/提交失败。
+- 自动化：真实 CLI text / JSON / JSONL、退出码、session 恢复、失败通知收口、Hook Agent、双 MCP stdio 服务跨任务关闭、并发关闭和内部任务回收。
+- Provider 故障：三个真实 SDK 适配的五类 SSE 部分中断、429 后恢复、Retry-After、次数/时间上限、空流、thinking/工具片段、非法工具 JSON、内容过滤及输出续写耗尽。
+
+真实本地文件、Bash / argv 子进程、Git 仓库、SQLite、MCP stdio 和 Textual `run_test` 都参与了集成验证。tmux / iTerm2 的外部终端适配保留原有模拟测试；本次没有在 macOS 的 iTerm2 或每一种实际终端执行。
+
+## 复现
 
 ```bash
 uv sync --locked
-uv run --locked pytest -q
+uv run --locked python -m pytest -q
 uv run --locked python tests/verify_subagent.py
-uv run --locked python -m compileall -q likecc
-uv run --locked likecc --help
+uv run --locked python -m scripts.update_schemas
+uv build --no-sources
 ```
 
-测试需要 Python 3.11 或更高版本。Git / Worktree 集成用例需要本地 Git 可用；应以测试输出中的实际通过、跳过和失败数量为准。依赖安装可能需要访问包源，测试中的模型回复由本地 fake 提供。
+脱离源码验证分发包（路径按环境调整）：
 
-## 重点回归
+```bash
+uv export --locked --no-dev --no-emit-project --output-file /tmp/eviforge-requirements.txt
+uv venv --python 3.12 /tmp/eviforge-wheel
+uv pip install --python /tmp/eviforge-wheel/bin/python --require-hashes -r /tmp/eviforge-requirements.txt
+uv pip install --python /tmp/eviforge-wheel/bin/python --no-deps dist/eviforge-0.1.0-py3-none-any.whl
+/tmp/eviforge-wheel/bin/python scripts/check_distribution.py
+```
 
-- 定义式子 Agent 默认同步；Fork 始终后台运行，结果通过任务通知回传。
-- Fork 保留父请求的 system、历史和工具 schema；独立来源标记阻止递归委派，引用文档中的标签不会误触发限制。
-- 子 Agent 的权限模式受父 Agent 上界约束；配置策略和本地拒绝规则保留，父会话的临时允许审批不自动继承。显式拒绝优先于安全命令的自动放行。
-- 子 Agent 的文件缓存与读取记录独立。其他 Agent 修改文件后重新读取应看到新内容，未读过的新内容不能被静默覆盖；相同 mtime 也需要核对内容。
-- ToolSearch 和 LoadSkill 使用子 Agent 自己的状态；Hook、客户端等按职责共享。
-- 显式 Worktree 隔离、后台生命周期、任务取消和资源回收有相应回归用例。
+该脚本切换到临时 HOME 和临时工作目录，以隔离导入方式检查安装包，避免从源码目录误导入。CI 执行同类测试、构建和安装验证。
 
-## 验证边界
+## 修复记录与解释边界
 
-这些测试证明的是已覆盖输入下的程序行为，不用于推导模型任务成功率、生产环境稳定性或固定的 prompt cache 命中率。真实模型鉴权、端点兼容性、外部工具副作用和具体终端显示仍需在目标环境中验证。
+实现过程中发现并修复的问题、对应执行边界见 [改进报告](eviforge-improvement-report.md)。所有最终验收项通过后才形成上述统计；先前的失败运行不冒充最终通过结果。
 
-统一入口为 Python 包 `likecc`、命令 `likecc`、配置目录 `.likecc`、项目规则 `LIKECC.md`，以及 `LIKECC_*` 团队协作环境变量。CI 会重新执行全量测试、独立 SubAgent 检查、构建和安装包验证。
-
-本初版尚未实现 Hook 的 `agent` 执行器和插件来源的 Agent 加载；headless 尚未装配 TUI 的 Memory、Session、Skill、MCP 全套管理器。权限检查和 Worktree 不提供操作系统级安全沙箱，EviForge 后续版本的证据验收、持久化恢复与经验治理也不在本版的验证范围内。
+这些结果验证已覆盖输入下的程序行为，不是模型任务成功率实验。没有请求真实付费模型或外部 MCP，也没有复现简历中的数值指标。普通 Agent 的正常完成不等同于代码质量证明；严格节点结果由 Typed DAG 与验证节点检查。类型、哈希、应用层权限和 Worktree 不提供操作系统级进程沙箱。

@@ -33,8 +33,8 @@ jobs:
         run: uv build --no-sources
       - name: Install and verify the wheel outside the checkout
         run: |
-          uv export --locked --no-dev --no-emit-project --output-file "$RUNNER_TEMP/likecc-requirements.txt"
-          uv venv --python 3.11 "$RUNNER_TEMP/likecc-wheel"
-          uv pip install --python "$RUNNER_TEMP/likecc-wheel/bin/python" --require-hashes -r "$RUNNER_TEMP/likecc-requirements.txt"
-          uv pip install --python "$RUNNER_TEMP/likecc-wheel/bin/python" --no-deps dist/*.whl
-          "$RUNNER_TEMP/likecc-wheel/bin/python" scripts/check_distribution.py
+          uv export --locked --no-dev --no-emit-project --output-file "$RUNNER_TEMP/eviforge-requirements.txt"
+          uv venv --python 3.11 "$RUNNER_TEMP/eviforge-wheel"
+          uv pip install --python "$RUNNER_TEMP/eviforge-wheel/bin/python" --require-hashes -r "$RUNNER_TEMP/eviforge-requirements.txt"
+          uv pip install --python "$RUNNER_TEMP/eviforge-wheel/bin/python" --no-deps dist/*.whl
+          "$RUNNER_TEMP/eviforge-wheel/bin/python" scripts/check_distribution.py

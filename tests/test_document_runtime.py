@@ -9,12 +9,12 @@ from pathlib import Path
 
 import pytest
 
-from likecc.agent import Agent
-from likecc.client import LLMClient
-from likecc.config import MCPServerConfig, ProviderConfig
-from likecc.conversation import ConversationManager
-from likecc.tools import create_default_registry
-from likecc.tools.base import StreamEnd, TextDelta, ToolCallComplete
+from eviforge.agent import Agent
+from eviforge.client import LLMClient
+from eviforge.config import MCPServerConfig, ProviderConfig
+from eviforge.conversation import ConversationManager
+from eviforge.tools import create_default_registry
+from eviforge.tools.base import StreamEnd, TextDelta, ToolCallComplete
 
 
 class ScriptedClient(LLMClient):
@@ -60,8 +60,8 @@ async def test_six_real_tools_complete_a_file_workflow(tmp_path):
 
 @pytest.mark.asyncio
 async def test_real_mcp_stdio_discover_execute_reconnect_and_close(tmp_path):
-    from likecc.mcp.client import MCPClient
-    from likecc.mcp.tool_wrapper import MCPToolWrapper
+    from eviforge.mcp.client import MCPClient
+    from eviforge.mcp.tool_wrapper import MCPToolWrapper
 
     server = tmp_path / "mcp_fixture.py"
     server.write_text(
@@ -79,8 +79,8 @@ async def test_real_mcp_stdio_discover_execute_reconnect_and_close(tmp_path):
             definitions = await client.list_tools()
             definition = next(t for t in definitions if t.name == "add")
             wrapper = MCPToolWrapper("audit", definition, client)
-            from likecc.agents.parser import AgentDef
-            from likecc.agents.tool_filter import build_teammate_tools, resolve_agent_tools
+            from eviforge.agents.parser import AgentDef
+            from eviforge.agents.tool_filter import build_teammate_tools, resolve_agent_tools
 
             registry = create_default_registry()
             registry.register(wrapper)
@@ -109,7 +109,7 @@ async def test_real_mcp_stdio_discover_execute_reconnect_and_close(tmp_path):
 
 @pytest.mark.asyncio
 async def test_memory_extract_reload_and_inject_next_session(tmp_path, monkeypatch):
-    from likecc.memory.auto_memory import MemoryManager
+    from eviforge.memory.auto_memory import MemoryManager
 
     home = tmp_path / "home"
     project = tmp_path / "project"
@@ -146,8 +146,8 @@ async def test_fork_runtime_source_blocks_control_even_without_history_marker(tm
 @pytest.mark.asyncio
 @pytest.mark.parametrize("interactive", [False, True])
 async def test_frozen_fork_system_does_not_discard_pending_shared_hook_prompts(tmp_path, interactive):
-    from likecc.hooks.engine import HookEngine
-    from likecc.hooks.models import Action, Hook, HookContext
+    from eviforge.hooks.engine import HookEngine
+    from eviforge.hooks.models import Action, Hook, HookContext
 
     hooks = HookEngine([Hook("new-rule", "audit", Action(type="prompt", message="retain this rule"))])
     await hooks.run_hooks("audit", HookContext(event_name="audit"))
@@ -167,7 +167,7 @@ async def test_frozen_fork_system_does_not_discard_pending_shared_hook_prompts(t
 
 @pytest.mark.asyncio
 async def test_textual_input_help_and_cancellation(tmp_path, monkeypatch):
-    import likecc.app as ui
+    import eviforge.app as ui
 
     home = tmp_path / "home"
     project = tmp_path / "project"
@@ -197,7 +197,7 @@ async def test_textual_input_help_and_cancellation(tmp_path, monkeypatch):
 
     monkeypatch.setattr(ui, "resolve_context_window", resolve)
     provider = ProviderConfig("offline", "anthropic", "http://unused.invalid", "offline", api_key="audit-only", context_window=32000)
-    app = ui.LikeCCApp([provider])
+    app = ui.EviForgeApp([provider])
     async with app.run_test(size=(100, 35)) as pilot:
         await pilot.pause()
         box = app.query_one("#chat-input", ui.ChatInput)

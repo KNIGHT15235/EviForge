@@ -7,7 +7,7 @@ from typing import Any, AsyncIterator
 
 import pytest
 
-from likecc.agent import (
+from eviforge.agent import (
     Agent,
     ErrorEvent,
     LoopComplete,
@@ -20,12 +20,12 @@ from likecc.agent import (
     UsageEvent,
     partition_tool_calls,
 )
-from likecc.prompts import build_environment_context, build_plan_mode_reminder, build_system_prompt
-from likecc.client import LLMClient
-from likecc.conversation import ConversationManager
-from likecc.serialization import build_anthropic_messages
-from likecc.tools import create_default_registry
-from likecc.tools.base import (
+from eviforge.prompts import build_environment_context, build_plan_mode_reminder, build_system_prompt
+from eviforge.client import LLMClient
+from eviforge.conversation import ConversationManager
+from eviforge.serialization import build_anthropic_messages
+from eviforge.tools import create_default_registry
+from eviforge.tools.base import (
     StreamEnd,
     StreamEvent,
     TextDelta,
@@ -392,7 +392,7 @@ async def test_token_usage_accumulates():
 @pytest.mark.asyncio
 async def test_plan_mode():
     """通过 permission_mode 切换 plan 模式。"""
-    from likecc.permissions import PermissionMode
+    from eviforge.permissions import PermissionMode
 
     registry = create_default_registry()
     agent = Agent(MockLLMClient([]), registry, "anthropic")
@@ -411,7 +411,7 @@ async def test_plan_mode():
 @pytest.mark.asyncio
 async def test_plan_mode_denied_tool_returns_error():
     """Plan 模式直接拒绝计划文件之外的写入，不触发人工审批。"""
-    from likecc.permissions import (
+    from eviforge.permissions import (
         DangerousCommandDetector,
         PathSandbox,
         PermissionChecker,
@@ -459,7 +459,7 @@ async def test_plan_mode_denied_tool_returns_error():
 
 def test_partition_tool_calls():
     """分批逻辑会把可并发执行的调用归到同一组。"""
-    from likecc.tools.base import ToolCallComplete
+    from eviforge.tools.base import ToolCallComplete
 
     calls = [
         ToolCallComplete("1", "ReadFile", {}),
@@ -489,7 +489,7 @@ def test_parallel_batch_falls_back_when_hooks_are_enabled():
 
 def test_system_prompt_normal():
     sp = build_system_prompt()
-    assert "LikeCC" in sp
+    assert "EviForge" in sp
     assert "Plan mode" not in sp
 
 def test_system_prompt_plan():

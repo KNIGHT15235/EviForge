@@ -6,19 +6,19 @@ import copy
 
 import pytest
 
-from likecc.agent import Agent
-from likecc.cache import FileCache
-from likecc.client import LLMClient
-from likecc.conversation import ConversationManager
-from likecc.hooks.engine import HookEngine
-from likecc.hooks.models import Action, Hook
-from likecc.permissions import DangerousCommandDetector, PathSandbox, PermissionChecker, PermissionMode, RuleEngine
-from likecc.skills.executor import SkillExecutor
-from likecc.skills.parser import SkillDef
-from likecc.tools import create_default_registry
-from likecc.tools.base import StreamEnd, TextDelta, ToolCallComplete
-from likecc.tools.impl.tool_search import ToolSearchTool
-from likecc.tools.read_file import ReadFile
+from eviforge.agent import Agent
+from eviforge.cache import FileCache
+from eviforge.client import LLMClient
+from eviforge.conversation import ConversationManager
+from eviforge.hooks.engine import HookEngine
+from eviforge.hooks.models import Action, Hook
+from eviforge.permissions import DangerousCommandDetector, PathSandbox, PermissionChecker, PermissionMode, RuleEngine
+from eviforge.skills.executor import SkillExecutor
+from eviforge.skills.parser import SkillDef
+from eviforge.tools import create_default_registry
+from eviforge.tools.base import StreamEnd, TextDelta, ToolCallComplete
+from eviforge.tools.impl.tool_search import ToolSearchTool
+from eviforge.tools.read_file import ReadFile
 
 
 class FakeLLM(LLMClient):

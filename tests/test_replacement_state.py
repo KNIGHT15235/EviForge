@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from likecc.context.manager import (
+from eviforge.context.manager import (
     AGGREGATE_CHAR_LIMIT,
     PERSISTED_TAG,
     REPLACEMENT_RECORDS_FILENAME,
@@ -18,7 +18,7 @@ from likecc.context.manager import (
     load_replacement_records,
     reconstruct_replacement_state,
 )
-from likecc.conversation import ConversationManager, Message, ToolResultBlock
+from eviforge.conversation import ConversationManager, Message, ToolResultBlock
 
 def _one_msg_conv(*results: ToolResultBlock) -> ConversationManager:
     conv = ConversationManager()

@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "sequence": {
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "timestamp": {
+      "title": "Timestamp",
+      "type": "number"
+    },
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "data": {
+      "additionalProperties": true,
+      "title": "Data",
+      "type": "object"
+    }
+  },
+  "required": [
+    "run_id",
+    "sequence",
+    "timestamp",
+    "type"
+  ],
+  "title": "RunEvent",
+  "type": "object"
+}

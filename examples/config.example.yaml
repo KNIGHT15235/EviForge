@@ -1,4 +1,4 @@
-# 复制到目标项目的 .likecc/config.yaml 后，替换服务地址和模型名称。
+# 复制到目标项目的 .eviforge/config.yaml 后，替换服务地址和模型名称。
 # 本示例不包含真实凭据，也不会自动选择或下载模型。
 providers:
   - name: primary

@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "RunError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "RunError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "session_id": {
+      "default": "",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "default": "",
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "status": {
+      "default": "success",
+      "enum": [
+        "success",
+        "failed",
+        "blocked",
+        "approval_required",
+        "ambiguous",
+        "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "exit_code": {
+      "default": 0,
+      "title": "Exit Code",
+      "type": "integer"
+    },
+    "output": {
+      "default": "",
+      "title": "Output",
+      "type": "string"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/RunError"
+      },
+      "title": "Errors",
+      "type": "array"
+    },
+    "input_tokens": {
+      "default": 0,
+      "title": "Input Tokens",
+      "type": "integer"
+    },
+    "output_tokens": {
+      "default": 0,
+      "title": "Output Tokens",
+      "type": "integer"
+    },
+    "elapsed_seconds": {
+      "default": 0.0,
+      "title": "Elapsed Seconds",
+      "type": "number"
+    },
+    "events_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Events Path"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "RunResult",
+  "type": "object"
+}

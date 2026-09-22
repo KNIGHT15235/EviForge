@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "name": "Explore, implement, verify, integrate",
+  "max_concurrency": 2,
+  "nodes": [
+    {"id": "explore", "role": "explorer", "goal": "Inspect README.md and describe one concrete documentation improvement.", "read_set": ["README.md"]},
+    {"id": "implement", "role": "implementer", "goal": "Apply the identified improvement to README.md, capture it and report the change.", "depends_on": ["explore"], "inputs": [{"node_id": "explore", "role": "explorer"}], "read_set": ["README.md"], "write_set": ["README.md"]},
+    {"id": "verify", "role": "verifier", "goal": "Inspect the change against the Explorer findings and report whether it improves accuracy. Capture the inspected file.", "depends_on": ["implement"], "inputs": [{"node_id": "implement", "role": "implementer"}], "read_set": ["README.md"]},
+    {"id": "integrate", "role": "integrator", "goal": "Report the verified documentation result without further changes.", "depends_on": ["implement", "verify"], "inputs": [{"node_id": "implement", "role": "implementer"}, {"node_id": "verify", "role": "verifier"}], "read_set": ["README.md"]}
+  ]
+}

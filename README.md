@@ -1,105 +1,78 @@
-# LikeCC
+# EviForge
 
-一个学习 Claude Code 工作方式的 Python 终端编程助手实验项目，也是 **EviForge 的早期功能基线**。它围绕代码阅读、工具执行、上下文管理和子 Agent 分工，探索终端 Coding Agent 的实现方式。
+**可验证、可恢复、会进化的终端 Coding Agent。**
 
-本项目为独立学习实践，与 Anthropic 无官方关联，也不声称复现 Claude Code 的完整内部实现。
+EviForge 在 [LikeCC](https://github.com/KNIGHT15235/likecc) 的 Python ReAct 内核上扩展了版本化计划审批、受治理的记忆与 Skill、Typed DAG 多 Agent 工作流，以及可供脚本读取的执行结果。Textual TUI 和非交互命令共用运行循环与服务装配。
 
-## 能力
+这里的“会进化”指经验经过证据记录、人工确认和版本发布后影响后续任务；模型生成的经验只进入隔离候选区。这里的“可恢复”指保留检查点、核验漂移并拒绝危险重放，不承诺外部副作用的 exactly-once 执行。
 
-| 模块 | 已有能力 |
+## 相比 LikeCC
+
+| 能力 | EviForge 的实现 |
 | --- | --- |
-| Agent 运行 | 异步工具调用循环、流式响应、Textual 终端界面，以及 `-p` 非交互入口 |
-| 模型接入 | Anthropic、OpenAI、OpenAI 兼容协议；通过配置选择模型与服务端点 |
-| 代码工具 | 文件读取与编辑、目录搜索、命令执行；编辑前检查文件是否读过、是否被修改 |
-| 上下文 | 会话保存与恢复、上下文压缩、用户和项目记忆 |
-| 扩展 | Markdown Agent 定义、Skill、Hook 与 MCP 工具接入 |
-| 子 Agent | 定义式独立上下文、Fork 历史继承、后台任务通知、独立权限与文件读取状态 |
-| 协作与隔离 | 团队任务和消息、Git Worktree 工作目录隔离 |
-| 权限 | 权限模式、显式规则、文件路径检查；子 Agent 权限不超过父 Agent |
+| 统一运行时 | TUI / `-p` 都装配 Memory、Skill、MCP、Session、SubAgent、Team，提供等待、取消、回收接口 |
+| 计划审批 | PlanSession 绑定 session、turn 与内容哈希；精确工具参数 / argv、cwd、文件范围、网络 origin 和有效期；执行前再次核验 |
+| 经验治理 | SQLite 记录来源、状态、哈希、验证和审计；用户与项目共享 16,000 字符记忆预算；发布、撤销、反馈与回滚刷新上下文 |
+| Typed DAG | Explorer / Implementer / Verifier / Integrator 强类型输入输出；离线校验、依赖并行与写集冲突串行、SHA-256 证据、持久化恢复 |
+| 自动化 | RunResult JSON Schema、JSONL 事件、稳定退出码；有界 Provider 重试；部分输出中断返回 `ambiguous`，不静默重放 |
+| 原有能力 | 三类 Provider 协议、六种代码工具、上下文压缩、Slash Commands、Skill、Hooks、SubAgent、Team、Git Worktree 和文件恢复继续复用 |
 
-## 安装
+详细实现与验证证据见 [改进报告](docs/eviforge-improvement-report.md) 和 [测试说明](docs/verification.md)。
 
-需要 Python 3.11 或更高版本、uv；使用 Worktree 时还需要 Git。推荐 Linux 或 Windows 的 WSL 环境；Bash 工具依赖系统中的 `bash`。克隆仓库并安装锁定依赖：
+## 安装和运行
+
+需要 Python 3.11+。推荐 Linux 或 Windows WSL；原有 `Bash.command` 依赖 `bash`，Worktree 需要 Git。`Bash.argv` 直接启动指定程序。
+
+在本项目目录执行：
 
 ```bash
-git clone https://github.com/KNIGHT15235/likecc.git
-cd likecc
 uv sync --locked
+uv run --locked eviforge --help
 ```
 
-## 配置与运行
-
-在需要处理的项目目录中创建 `.likecc/config.yaml`，参考 [配置示例](examples/config.example.yaml)。将 `YOUR_MODEL` 和服务地址替换为实际可用的配置。
-
-API Key 建议通过环境变量提供：`openai` 和 `openai-compat` 使用 `OPENAI_API_KEY`，`anthropic` 使用 `ANTHROPIC_API_KEY`。示例中的 `api_key: ""` 会读取对应环境变量。
+复制 [配置示例](examples/config.example.yaml) 到目标项目的 `.eviforge/config.yaml`，填写真实服务地址和模型。`api_key: ""` 从 `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` 读取。也可在用户目录 `~/.eviforge/config.yaml` 配置。
 
 ```bash
-# Bash / Zsh：替换为自己的凭据
-export OPENAI_API_KEY="YOUR_API_KEY"
-uv run --locked likecc
+uv run --locked eviforge
+uv run --locked eviforge -p "阅读当前项目，概括主要模块"
+uv run --locked eviforge -p "检查当前改动" --output json
+uv run --locked eviforge -p "检查当前改动" --output jsonl
+uv run --locked eviforge --mode plan
 ```
 
-```powershell
-# PowerShell：替换为自己的凭据
-$env:OPENAI_API_KEY = "YOUR_API_KEY"
-uv run --locked likecc
-```
+处理其他项目时，可以在本仓库执行 `uv tool install .`，随后切换到目标项目运行 `eviforge`。项目规则写入 `EVIFORGE.md`；TUI 内 `/help` 可查看 `/plan`、`/session`、`/compact`、`/memory`、`/skill`、`/tasks` 等命令。
 
-上述 `uv run` 命令在本仓库根目录执行。处理其他目录时，可先从本地源码安装命令，再到目标目录运行：
+默认 `default` 权限模式仍需确认写操作；非交互入口遇到未获许可的操作会拒绝，并以 `blocked` / 退出码 3 返回。选择 `acceptEdits` 只改变相应权限策略，显式 deny 和计划约束仍然有效。
+
+## 计划、经验与 DAG
+
+- [计划与自动化](docs/automation-and-plans.md)：审阅计划内容及 action manifest，按哈希批准；读取 RunResult 和 JSONL。
+- [记忆与 Skill 治理](docs/governance.md)：候选 → 验证 → 人工确认 → 发布，反馈撤销和版本回滚。
+- [Typed DAG](docs/typed-dag.md)：图校验、运行、证据、检查点恢复与显式重试。
+
+以下命令不需要模型配置，也不会请求模型：
 
 ```bash
-uv tool install .
-# 切换到目标项目，并为该项目准备 .likecc/config.yaml
-likecc
+eviforge schema
+eviforge dag schema
+eviforge dag validate examples/dag-review.json
+eviforge governance list
+eviforge plan list
 ```
 
-配置也可以放在用户目录的 `~/.likecc/config.yaml`。加载顺序为用户配置、项目 `.likecc/config.yaml`、项目 `.likecc/config.local.yaml`；各层按字段合并。真实凭据和个人配置不应提交到仓库。
-
-常见入口：
+## 开发与验证
 
 ```bash
-uv run --locked likecc --help
-uv run --locked likecc -p "阅读当前项目，概括主要模块及其职责"
-uv run --locked likecc --mode plan
+uv run --locked python -m pytest -q
+uv run --locked python tests/verify_subagent.py
+uv run --locked python -m scripts.update_schemas
+uv build --no-sources
 ```
 
-终端界面中可使用 `/help` 查看命令，例如 `/plan`、`/permission`、`/session`、`/compact`、`/memory` 和 `/skill`。项目规则可写入 `LIKECC.md`。
+CI 执行原有与新增回归、独立 SubAgent 检查、构建及脱离源码的安装包验证。测试使用确定性模型替身和真实 SDK 的本地 HTTP/SSE 响应，并实际执行本地文件、子进程、Git、SQLite、MCP stdio 和 Textual 流程。实测数量、环境和限制以 [验证说明](docs/verification.md) 为准。
 
-默认权限模式是 `default`。Fork 需要开启 `enable_fork`；定义式子 Agent 默认同步运行，可由定义或调用参数选择后台运行。后台任务不弹出人工确认，未获允许的操作会返回拒绝。
+权限和路径检查属于应用层约束。精确 argv 批准的是一次程序启动，程序内部仍可产生文件或网络副作用；Worktree 也不是操作系统安全沙箱。经验验证记录由操作者提供，类型和内容哈希不等同于语义正确性证明。没有复现简历中的成功率、拦截率或付费模型指标。
 
-## 目录
+## 来源与许可证
 
-```text
-likecc/
-  agent.py          Agent 运行循环
-  client.py         模型协议适配
-  tools/            文件、命令与协作工具
-  agents/           子 Agent 定义、Fork 与后台任务
-  permissions/      权限模式、规则与路径检查
-  context/          上下文预算与压缩
-  memory/           记忆、项目规则与会话
-  skills/           Skill 加载与执行
-  hooks/            生命周期扩展
-  mcp/              MCP 工具接入
-  teams/            团队任务与消息
-  worktree/         Git Worktree 管理
-tests/              自动化测试与验证脚本
-examples/           可公开的配置示例
-docs/               验证说明
-```
-
-## 验证与边界
-
-LikeCC 在 Python 3.11 和 3.12 下均通过 **720 项 pytest 测试**，另通过 **90 项独立 SubAgent 检查**。完整范围与复现命令见 [验证说明](docs/verification.md)。
-
-- 已验证用例以本地 fake 模型、临时文件和临时 Git 仓库为主，不代表真实模型服务、所有操作系统或外部 MCP 服务都已验证。
-- TUI 与 `-p` 共用核心 Agent 能力；`-p` 尚未装配 TUI 的 Memory、Session、Skill 与 MCP 全套管理器。
-- Hook 的 `agent` 执行器、插件来源的 Agent 加载尚未实现。
-- EviForge 后续版本规划的证据验收、持久化恢复和经验治理不属于本初版已实现的能力。
-- Fork 保留可复用的请求前缀；实际缓存命中取决于服务端、模型和请求内容，不承诺固定命中率。
-- 子 Agent 的报告格式由提示词约束；Worktree 提供工作目录隔离，权限检查不等同于操作系统级安全沙箱。
-- 本仓库公开版本仅包含源码、测试与示例，不包含开发阶段的审计备份、运行日志或个人配置。
-
-## 许可证
-
-采用 [MIT License](LICENSE)。
+基于 LikeCC 初版代码演进，保留其 MIT 许可证。复制基线提交与逐文件哈希见 [来源记录](docs/likecc-baseline.json)。这是学习终端 Coding Agent 工作方式的独立实践，与 Anthropic 无官方关联。

@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from likecc.app import LikeCCApp
-from likecc.hooks import Action, ActionResult, Hook, HookEngine
+from eviforge.app import EviForgeApp
+from eviforge.hooks import Action, ActionResult, Hook, HookEngine
 
 
 @pytest.mark.asyncio
@@ -32,9 +32,9 @@ async def test_app_shutdown_hooks_is_idempotent_and_waits_for_async_hook():
             )
         ]
     )
-    app = LikeCCApp(providers=[], hook_engine=engine)
+    app = EviForgeApp(providers=[], hook_engine=engine)
 
-    with patch("likecc.hooks.engine.execute_action", new=controlled_action):
+    with patch("eviforge.hooks.engine.execute_action", new=controlled_action):
         shutdown_task = asyncio.create_task(app._shutdown_hooks())
         await asyncio.wait_for(started.wait(), timeout=1)
         assert not shutdown_task.done()
@@ -60,7 +60,7 @@ async def test_app_shutdown_timeout_cancels_and_reaps_startup_task():
             finalized.set()
 
     engine = HookEngine([])
-    app = LikeCCApp(providers=[], hook_engine=engine)
+    app = EviForgeApp(providers=[], hook_engine=engine)
     app._hook_startup_task = asyncio.create_task(blocked_startup())
     await asyncio.wait_for(started.wait(), timeout=1)
 
@@ -74,7 +74,7 @@ async def test_app_shutdown_timeout_cancels_and_reaps_startup_task():
 
 @pytest.mark.asyncio
 async def test_noninteractive_prompt_runs_hook_cleanup_in_same_loop():
-    from likecc import __main__ as entrypoint
+    from eviforge import __main__ as entrypoint
 
     engine = HookEngine(
         [
@@ -94,7 +94,7 @@ async def test_noninteractive_prompt_runs_hook_cleanup_in_same_loop():
     async def fail_prompt(*args, **kwargs):
         raise RuntimeError("prompt failed")
 
-    with patch("likecc.__main__._run_prompt", new=fail_prompt):
+    with patch("eviforge.__main__._run_prompt", new=fail_prompt):
         with pytest.raises(RuntimeError, match="prompt failed"):
             await entrypoint._run_prompt_with_hook_cleanup(
                 config=None,

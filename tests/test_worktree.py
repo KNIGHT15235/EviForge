@@ -10,28 +10,28 @@ from types import SimpleNamespace
 
 import pytest
 
-from likecc.agent import Agent, PermissionRequest, PermissionResponse
-from likecc.cache import FileCache
-from likecc.commands.handlers.worktree import create_worktree_command
-from likecc.config import WorktreeConfig, load_config
-from likecc.permissions import (
+from eviforge.agent import Agent, PermissionRequest, PermissionResponse
+from eviforge.cache import FileCache
+from eviforge.commands.handlers.worktree import create_worktree_command
+from eviforge.config import WorktreeConfig, load_config
+from eviforge.permissions import (
     DangerousCommandDetector,
     PathSandbox,
     PermissionChecker,
     PermissionMode,
     RuleEngine,
 )
-from likecc.tools import create_default_registry
-from likecc.tools.base import ToolCallComplete
-from likecc.tools.enter_worktree import EnterWorktreeParams, EnterWorktreeTool
-from likecc.tools.exit_worktree import ExitWorktreeParams, ExitWorktreeTool
-from likecc.tools.work_dir import tool_working_directory
-from likecc.worktree.changes import count_worktree_changes, has_worktree_changes
-from likecc.worktree.integration import build_worktree_notice, generate_worktree_name
-from likecc.worktree.manager import WorktreeError, WorktreeManager
-from likecc.worktree.models import WorktreeSession
-from likecc.worktree.session import load_worktree_session, save_worktree_session
-from likecc.worktree.slug import flatten_slug, validate_slug
+from eviforge.tools import create_default_registry
+from eviforge.tools.base import ToolCallComplete
+from eviforge.tools.enter_worktree import EnterWorktreeParams, EnterWorktreeTool
+from eviforge.tools.exit_worktree import ExitWorktreeParams, ExitWorktreeTool
+from eviforge.tools.work_dir import tool_working_directory
+from eviforge.worktree.changes import count_worktree_changes, has_worktree_changes
+from eviforge.worktree.integration import build_worktree_notice, generate_worktree_name
+from eviforge.worktree.manager import WorktreeError, WorktreeManager
+from eviforge.worktree.models import WorktreeSession
+from eviforge.worktree.session import load_worktree_session, save_worktree_session
+from eviforge.worktree.slug import flatten_slug, validate_slug
 
 # =========================================================================
 # A. Slug 校验
@@ -587,7 +587,7 @@ class TestWorktreeManager:
 
     @pytest.mark.asyncio
     async def test_failed_edit_validation_does_not_track_history(self, tmp_path):
-        from likecc.tools.edit_file import EditFile
+        from eviforge.tools.edit_file import EditFile
 
         class RecordingHistory:
             def __init__(self) -> None:
@@ -792,14 +792,14 @@ class TestReadWorktreeHeadSha:
 
 class TestAppWorktreeContext:
     def test_sync_updates_agent_sandbox_caches_and_conversation(self, tmp_path):
-        from likecc.app import LikeCCApp
+        from eviforge.app import EviForgeApp
 
         old_dir = tmp_path / "old"
         new_dir = tmp_path / "new"
         old_dir.mkdir()
         new_dir.mkdir()
         checker = SimpleNamespace(sandbox=PathSandbox(str(old_dir)))
-        app = LikeCCApp(providers=[])
+        app = EviForgeApp(providers=[])
         app.agent = SimpleNamespace(
             work_dir=str(old_dir),
             permission_checker=checker,

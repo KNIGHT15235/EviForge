@@ -1,0 +1,171 @@
+{
+  "$defs": {
+    "CommandSpec": {
+      "additionalProperties": false,
+      "description": "Exact, operator-declared argv invocation; not an OS sandbox.",
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Argv",
+          "type": "array"
+        },
+        "timeout": {
+          "default": 120,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Timeout",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "argv"
+      ],
+      "title": "CommandSpec",
+      "type": "object"
+    },
+    "InputRef": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "explorer",
+            "implementer",
+            "verifier",
+            "integrator"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "role"
+      ],
+      "title": "InputRef",
+      "type": "object"
+    },
+    "NodeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "explorer",
+            "implementer",
+            "verifier",
+            "integrator"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "goal": {
+          "minLength": 1,
+          "title": "Goal",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputRef"
+          },
+          "title": "Inputs",
+          "type": "array"
+        },
+        "read_set": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Read Set",
+          "type": "array"
+        },
+        "write_set": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Write Set",
+          "type": "array"
+        },
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/CommandSpec"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "max_iterations": {
+          "default": 25,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Max Iterations",
+          "type": "integer"
+        },
+        "timeout": {
+          "default": 300,
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "goal"
+      ],
+      "title": "NodeSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "name": {
+      "default": "workflow",
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "max_concurrency": {
+      "default": 4,
+      "maximum": 32,
+      "minimum": 1,
+      "title": "Max Concurrency",
+      "type": "integer"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/NodeSpec"
+      },
+      "minItems": 1,
+      "title": "Nodes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "nodes"
+  ],
+  "title": "GraphSpec",
+  "type": "object"
+}

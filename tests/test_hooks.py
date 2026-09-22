@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from likecc.hooks import (
+from eviforge.hooks import (
     Action,
     ActionResult,
     Condition,
@@ -259,7 +259,7 @@ class _ControlledProcess:
 class TestCommandExecutor:
     @pytest.mark.asyncio
     async def test_normal_execution(self):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         action = Action(type="command", command="echo hello")
         ctx = HookContext()
@@ -269,7 +269,7 @@ class TestCommandExecutor:
 
     @pytest.mark.asyncio
     async def test_variable_substitution(self):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         action = Action(type="command", command="echo $FILE_PATH")
         ctx = HookContext(file_path="src/main.py")
@@ -278,7 +278,7 @@ class TestCommandExecutor:
 
     @pytest.mark.asyncio
     async def test_timeout(self):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         proc = _ControlledProcess()
 
@@ -293,8 +293,8 @@ class TestCommandExecutor:
         action = Action(type="command", command="unused", timeout=0.01)
         ctx = HookContext()
         with (
-            patch("likecc.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
-            patch("likecc.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
+            patch("eviforge.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
+            patch("eviforge.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
         ):
             result = await asyncio.wait_for(execute_command(action, ctx), timeout=1)
 
@@ -305,7 +305,7 @@ class TestCommandExecutor:
 
     @pytest.mark.asyncio
     async def test_cancellation_terminates_and_drains_process(self):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         proc = _ControlledProcess()
 
@@ -318,8 +318,8 @@ class TestCommandExecutor:
             proc.communicate_release.set()
 
         with (
-            patch("likecc.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
-            patch("likecc.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
+            patch("eviforge.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
+            patch("eviforge.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
         ):
             task = asyncio.create_task(
                 execute_command(Action(type="command", command="unused"), HookContext())
@@ -334,7 +334,7 @@ class TestCommandExecutor:
 
     @pytest.mark.asyncio
     async def test_cancellation_during_spawn_reaps_created_process(self):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         proc = _ControlledProcess()
         spawn_started = asyncio.Event()
@@ -351,8 +351,8 @@ class TestCommandExecutor:
             proc.communicate_release.set()
 
         with (
-            patch("likecc.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
-            patch("likecc.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
+            patch("eviforge.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
+            patch("eviforge.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
         ):
             task = asyncio.create_task(
                 execute_command(Action(type="command", command="unused"), HookContext())
@@ -368,7 +368,7 @@ class TestCommandExecutor:
 
     @pytest.mark.asyncio
     async def test_communicate_error_terminates_and_reaps_process(self):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         proc = _ControlledProcess(communicate_error=RuntimeError("pipe failed"))
         proc.communicate_release.set()
@@ -381,8 +381,8 @@ class TestCommandExecutor:
             proc.wait_release.set()
 
         with (
-            patch("likecc.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
-            patch("likecc.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
+            patch("eviforge.hooks.executors.asyncio.create_subprocess_shell", new=spawn),
+            patch("eviforge.hooks.executors._terminate_process_tree", side_effect=terminate) as stop,
         ):
             result = await asyncio.wait_for(
                 execute_command(Action(type="command", command="unused"), HookContext()),
@@ -397,7 +397,7 @@ class TestCommandExecutor:
 
     @pytest.mark.asyncio
     async def test_uses_hook_context_work_dir(self, tmp_path):
-        from likecc.hooks.executors import execute_command
+        from eviforge.hooks.executors import execute_command
 
         proc = _ControlledProcess()
         proc.communicate_release.set()
@@ -408,7 +408,7 @@ class TestCommandExecutor:
             return proc
 
         with patch(
-            "likecc.hooks.executors.asyncio.create_subprocess_shell", new=spawn
+            "eviforge.hooks.executors.asyncio.create_subprocess_shell", new=spawn
         ):
             result = await execute_command(
                 Action(type="command", command="unused"),
@@ -421,7 +421,7 @@ class TestCommandExecutor:
 class TestPromptExecutor:
     @pytest.mark.asyncio
     async def test_returns_message(self):
-        from likecc.hooks.executors import execute_prompt
+        from eviforge.hooks.executors import execute_prompt
 
         action = Action(type="prompt", message="Hello $TOOL_NAME")
         ctx = HookContext(tool_name="WriteFile")
@@ -432,12 +432,12 @@ class TestPromptExecutor:
 class TestHttpExecutor:
     @pytest.mark.asyncio
     async def test_mock_request(self):
-        from likecc.hooks.executors import execute_http
+        from eviforge.hooks.executors import execute_http
 
         action = Action(type="http", url="https://httpbin.org/post", body='{"test": true}')
         ctx = HookContext()
         # 用 mock 避免发起真实的网络请求
-        with patch("likecc.hooks.executors.urlopen") as mock_urlopen:
+        with patch("eviforge.hooks.executors.urlopen") as mock_urlopen:
             mock_resp = mock_urlopen.return_value.__enter__.return_value
             mock_resp.status = 200
             mock_resp.read.return_value = b'{"ok": true}'
@@ -447,19 +447,19 @@ class TestHttpExecutor:
 
 class TestAgentExecutor:
     @pytest.mark.asyncio
-    async def test_stub(self):
-        from likecc.hooks.executors import execute_agent
+    async def test_agent_requires_bound_runtime(self):
+        from eviforge.hooks.executors import execute_agent
 
         action = Action(type="agent", prompt="Check $FILE_PATH")
         ctx = HookContext(file_path="test.py")
         result = await execute_agent(action, ctx)
         assert result.success is False
-        assert "not yet implemented" in result.output
+        assert "requires a configured RuntimeServices" in result.output
 
 class TestExecuteAction:
     @pytest.mark.asyncio
     async def test_dispatch(self):
-        from likecc.hooks.executors import execute_action
+        from eviforge.hooks.executors import execute_action
 
         action = Action(type="command", command="echo dispatch_test")
         ctx = HookContext()
@@ -468,7 +468,7 @@ class TestExecuteAction:
 
     @pytest.mark.asyncio
     async def test_unknown_type(self):
-        from likecc.hooks.executors import execute_action
+        from eviforge.hooks.executors import execute_action
 
         action = Action(type="unknown")
         ctx = HookContext()
@@ -666,7 +666,7 @@ class TestHookEngine:
         engine = HookEngine([h])
         ctx = HookContext(event_name="post_tool_use")
 
-        with patch("likecc.hooks.engine.execute_action", new=slow_action):
+        with patch("eviforge.hooks.engine.execute_action", new=slow_action):
             await asyncio.wait_for(
                 engine.run_hooks("post_tool_use", ctx), timeout=1
             )
@@ -701,7 +701,7 @@ class TestHookEngine:
         engine = HookEngine([h])
         ctx = HookContext(event_name="post_tool_use")
 
-        with patch("likecc.hooks.engine.execute_action", new=never_finishes):
+        with patch("eviforge.hooks.engine.execute_action", new=never_finishes):
             await engine.run_hooks("post_tool_use", ctx)
             await asyncio.wait_for(started.wait(), timeout=1)
             await asyncio.wait_for(engine.cancel_background_hooks(), timeout=1)
@@ -718,11 +718,11 @@ class TestAgentHookIntegration:
 
     @pytest.mark.asyncio
     async def test_pre_tool_use_reject_skips_tool(self):
-        from likecc.agent import Agent, ToolResultEvent
-        from likecc.client import LLMClient
-        from likecc.conversation import ConversationManager
-        from likecc.tools import create_default_registry
-        from likecc.tools.base import StreamEnd, StreamEvent, TextDelta, ToolCallComplete
+        from eviforge.agent import Agent, ToolResultEvent
+        from eviforge.client import LLMClient
+        from eviforge.conversation import ConversationManager
+        from eviforge.tools import create_default_registry
+        from eviforge.tools.base import StreamEnd, StreamEvent, TextDelta, ToolCallComplete
 
         class MockClient(LLMClient):
             def __init__(self):

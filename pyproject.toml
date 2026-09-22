@@ -1,7 +1,7 @@
 [project]
-name = "likecc"
-version = "0.2.0"
-description = "A Python terminal coding agent inspired by Claude Code workflows"
+name = "eviforge"
+version = "0.1.0"
+description = "A verifiable, recoverable terminal coding agent with governed experience and typed Agent workflows"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
@@ -16,10 +16,10 @@ dependencies = [
 ]
 
 [project.scripts]
-likecc = "likecc.__main__:main"
+eviforge = "eviforge.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["likecc"]
+packages = ["eviforge"]
 
 [build-system]
 requires = ["hatchling"]

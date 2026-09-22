@@ -8,19 +8,19 @@ from pathlib import Path
 
 import pytest
 
-from likecc.conversation import (
+from eviforge.conversation import (
     ConversationManager,
     Message,
     ToolResultBlock,
     ToolUseBlock,
 )
-from likecc.memory.auto_memory import MemoryManager
-from likecc.memory.instructions import (
+from eviforge.memory.auto_memory import MemoryManager
+from eviforge.memory.instructions import (
     MAX_INCLUDE_DEPTH,
     load_instructions,
     process_includes,
 )
-from likecc.memory.session import (
+from eviforge.memory.session import (
     RecordType,
     ResumeResult,
     Session,
@@ -35,7 +35,7 @@ from likecc.memory.session import (
 )
 
 # =========================================================================
-# A. 指令文件（LIKECC.md）
+# A. 指令文件（EVIFORGE.md）
 # =========================================================================
 
 class TestProcessIncludes:
@@ -79,17 +79,17 @@ class TestProcessIncludes:
 
 class TestLoadInstructions:
     def test_single_layer(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        likecc_md = tmp_path / "LIKECC.md"
-        likecc_md.write_text("project instructions", encoding="utf-8")
+        eviforge_md = tmp_path / "EVIFORGE.md"
+        eviforge_md.write_text("project instructions", encoding="utf-8")
         result = load_instructions(str(tmp_path))
         assert "project instructions" in result
 
     def test_multi_layer_priority(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        root_md = tmp_path / "LIKECC.md"
+        root_md = tmp_path / "EVIFORGE.md"
         root_md.write_text("root level", encoding="utf-8")
-        dotdir = tmp_path / ".likecc"
+        dotdir = tmp_path / ".eviforge"
         dotdir.mkdir()
-        dot_md = dotdir / "LIKECC.md"
+        dot_md = dotdir / "EVIFORGE.md"
         dot_md.write_text("dotdir level", encoding="utf-8")
         result = load_instructions(str(tmp_path))
         assert result.index("root level") < result.index("dotdir level")
@@ -163,7 +163,7 @@ class TestSessionRecord:
 
 class TestSession:
     def test_append_writes_jsonl_and_updates_meta(self, tmp_path: Path) -> None:
-        sessions_dir = tmp_path / ".likecc" / "sessions"
+        sessions_dir = tmp_path / ".eviforge" / "sessions"
         sessions_dir.mkdir(parents=True)
         meta = SessionMeta(id="test_session")
         meta.save(sessions_dir / "test_session.meta")
@@ -180,7 +180,7 @@ class TestSession:
         assert meta.title == "hello"
 
     def test_title_set_from_first_user_message(self, tmp_path: Path) -> None:
-        sessions_dir = tmp_path / ".likecc" / "sessions"
+        sessions_dir = tmp_path / ".eviforge" / "sessions"
         sessions_dir.mkdir(parents=True)
         meta = SessionMeta(id="test_session")
         jsonl_path = sessions_dir / "test_session.jsonl"
@@ -602,11 +602,11 @@ class TestMemoryManager:
         fake_home.mkdir()
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
 
-        user_mem = fake_home / ".likecc" / "memories.md"
+        user_mem = fake_home / ".eviforge" / "memories.md"
         user_mem.parent.mkdir(parents=True)
         user_mem.write_text("### 用户偏好\n- prefer spaces", encoding="utf-8")
 
-        project_mem = tmp_path / "project" / ".likecc" / "memories.md"
+        project_mem = tmp_path / "project" / ".eviforge" / "memories.md"
         project_mem.parent.mkdir(parents=True)
         project_mem.write_text("### 项目知识\n- uses PostgreSQL", encoding="utf-8")
 
@@ -620,11 +620,11 @@ class TestMemoryManager:
         fake_home.mkdir()
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
 
-        user_mem = fake_home / ".likecc" / "memories.md"
+        user_mem = fake_home / ".eviforge" / "memories.md"
         user_mem.parent.mkdir(parents=True)
         user_mem.write_text("### 用户偏好\n- something", encoding="utf-8")
 
-        project_mem = tmp_path / "project" / ".likecc" / "memories.md"
+        project_mem = tmp_path / "project" / ".eviforge" / "memories.md"
         project_mem.parent.mkdir(parents=True)
         project_mem.write_text("### 项目知识\n- something", encoding="utf-8")
 
@@ -675,7 +675,7 @@ class TestConversationInjection:
         assert len(conv.history) == 2
         assert conv.history[0].content == "env info"
         assert "<system-reminder>" in conv.history[1].content
-        assert "likeccMd" in conv.history[1].content
+        assert "eviforgeMd" in conv.history[1].content
         assert "project rules" in conv.history[1].content
         assert "autoMemory" in conv.history[1].content
         assert "user prefs" in conv.history[1].content
@@ -693,7 +693,7 @@ class TestConversationInjection:
         conv.inject_long_term_memory("rules", "")
         assert len(conv.history) == 1
         assert "<system-reminder>" in conv.history[0].content
-        assert "likeccMd" in conv.history[0].content
+        assert "eviforgeMd" in conv.history[0].content
         assert "rules" in conv.history[0].content
 
     def test_inject_memories_only(self) -> None:
@@ -723,7 +723,7 @@ class TestConversationInjection:
 
 class TestMemoryExtraction:
     def test_extraction_prompt_contains_categories(self, tmp_path: Path) -> None:
-        from likecc.memory.auto_memory import MEMORY_EXTRACTION_PROMPT
+        from eviforge.memory.auto_memory import MEMORY_EXTRACTION_PROMPT
 
         assert "用户偏好" in MEMORY_EXTRACTION_PROMPT
         assert "纠正反馈" in MEMORY_EXTRACTION_PROMPT

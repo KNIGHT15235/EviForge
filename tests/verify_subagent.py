@@ -20,20 +20,20 @@ from unittest.mock import patch
 # 确保项目根目录在 sys.path 中
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from likecc.agents.loader import AgentLoader
-from likecc.agents.tool_filter import (
+from eviforge.agents.loader import AgentLoader
+from eviforge.agents.tool_filter import (
     ALL_AGENT_DISALLOWED_TOOLS,
     ASYNC_AGENT_ALLOWED_TOOLS,
     resolve_agent_tools,
 )
-from likecc.agents.fork import FORK_BOILERPLATE_TAG, ForkError, build_forked_messages
-from likecc.agents.trace import TraceManager
-from likecc.agents.task_manager import TaskManager
-from likecc.agents.notification import format_task_notification, inject_task_notifications
-from likecc.conversation import ConversationManager, ToolUseBlock
-from likecc.tools import ToolRegistry
-from likecc.tools.base import Tool, ToolResult
-from likecc.config import load_config
+from eviforge.agents.fork import FORK_BOILERPLATE_TAG, ForkError, build_forked_messages
+from eviforge.agents.trace import TraceManager
+from eviforge.agents.task_manager import TaskManager
+from eviforge.agents.notification import format_task_notification, inject_task_notifications
+from eviforge.conversation import ConversationManager, ToolUseBlock
+from eviforge.tools import ToolRegistry
+from eviforge.tools.base import Tool, ToolResult
+from eviforge.config import load_config
 
 PASS = "\033[32m✓\033[0m"
 FAIL = "\033[31m✗\033[0m"
@@ -49,8 +49,8 @@ def isolated_project():
         root = Path(temporary)
         home = root / "home"
         project = root / "project"
-        project_agents = project / ".likecc" / "agents"
-        user_agents = home / ".likecc" / "agents"
+        project_agents = project / ".eviforge" / "agents"
+        user_agents = home / ".eviforge" / "agents"
         project_agents.mkdir(parents=True)
         user_agents.mkdir(parents=True)
         (project_agents / "security-reviewer.md").write_text(
@@ -64,7 +64,7 @@ def isolated_project():
             "tools: [ReadFile, Grep, Glob]\n---\nSummarize the assigned files.\n",
             encoding="utf-8",
         )
-        (project / ".likecc" / "config.yaml").write_text(
+        (project / ".eviforge" / "config.yaml").write_text(
             "providers:\n  - name: offline\n    protocol: openai-compat\n"
             "    base_url: http://unused.invalid\n    model: offline\n"
             "    api_key: offline-test-only\n"
@@ -253,7 +253,7 @@ def verify_tool_filter(loader: AgentLoader):
         check("L3: 后台所有工具都在白名单中", True)
 
     # 白名单+黑名单组合
-    from likecc.agents.parser import AgentDef
+    from eviforge.agents.parser import AgentDef
     combo = AgentDef(
         agent_type="combo",
         when_to_use="test",
@@ -422,7 +422,7 @@ async def verify_task_manager():
 # ---------------------------------------------------------------------------
 def verify_notification():
     print("\n== 6. task-notification 通知 ==")
-    from likecc.agents.task_manager import BackgroundTask
+    from eviforge.agents.task_manager import BackgroundTask
 
     bg = BackgroundTask(
         id="abc123",
@@ -454,7 +454,7 @@ def verify_notification():
 
 def verify_config(project: Path):
     print("\n== 7. 配置扩展 ==")
-    config_path = project / ".likecc" / "config.yaml"
+    config_path = project / ".eviforge" / "config.yaml"
     if not config_path.exists():
         check("config.yaml 存在", False, str(config_path))
         return
@@ -470,7 +470,7 @@ def verify_config(project: Path):
 # ---------------------------------------------------------------------------
 def verify_permission():
     print("\n== 8. DONT_ASK 权限模式 ==")
-    from likecc.permissions.modes import PermissionMode, mode_decide
+    from eviforge.permissions.modes import PermissionMode, mode_decide
 
     check("DONT_ASK 枚举值", PermissionMode.DONT_ASK.value == "dontAsk")
     check("DONT_ASK read=allow", mode_decide(PermissionMode.DONT_ASK, "read") == "allow")
@@ -482,7 +482,7 @@ def verify_permission():
 # ---------------------------------------------------------------------------
 def verify_agent_fields():
     print("\n== 9. Agent 扩展字段 ==")
-    from likecc.agent import Agent
+    from eviforge.agent import Agent
     from unittest.mock import MagicMock
 
     agent = Agent(
@@ -502,7 +502,7 @@ def verify_agent_fields():
 # ---------------------------------------------------------------------------
 def verify_agent_tool():
     print("\n== 10. AgentTool 参数与 schema ==")
-    from likecc.tools.agent_tool import AgentTool, AgentToolParams
+    from eviforge.tools.agent_tool import AgentTool, AgentToolParams
 
     params = AgentToolParams(
         prompt="探索项目结构",

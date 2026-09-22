@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from likecc import __main__ as entrypoint
-from likecc.client import LLMClient
-from likecc.config import load_config
-from likecc.hooks import Action, Hook, HookEngine
-from likecc.permissions import PermissionMode
-from likecc.tools.base import StreamEnd, TextDelta, ToolCallComplete
+from eviforge import __main__ as entrypoint
+from eviforge.client import LLMClient
+from eviforge.config import load_config
+from eviforge.hooks import Action, Hook, HookEngine
+from eviforge.permissions import PermissionMode
+from eviforge.tools.base import StreamEnd, TextDelta, ToolCallComplete
 
 
 @pytest.fixture
@@ -20,12 +20,12 @@ def isolated_project(tmp_path, monkeypatch):
     home = tmp_path / "home"
     project = tmp_path / "project"
     home.mkdir()
-    (project / ".likecc").mkdir(parents=True)
+    (project / ".eviforge").mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
     monkeypatch.chdir(project)
-    (project / ".likecc" / "config.yaml").write_text(
+    (project / ".eviforge" / "config.yaml").write_text(
         "providers:\n"
         "  - name: offline\n"
         "    protocol: openai-compat\n"
@@ -41,13 +41,13 @@ def isolated_project(tmp_path, monkeypatch):
     async def no_model_fetch(provider):
         return None
 
-    monkeypatch.setattr("likecc.client.resolve_context_window", no_model_fetch)
+    monkeypatch.setattr("eviforge.client.resolve_context_window", no_model_fetch)
     return load_config()
 
 
 @pytest.fixture
 def task_managers(monkeypatch):
-    from likecc.agents.task_manager import TaskManager
+    from eviforge.agents.task_manager import TaskManager
 
     instances = []
 
@@ -56,7 +56,7 @@ def task_managers(monkeypatch):
             super().__init__()
             instances.append(self)
 
-    monkeypatch.setattr("likecc.agents.task_manager.TaskManager", TrackedTaskManager)
+    monkeypatch.setattr("eviforge.agents.task_manager.TaskManager", TrackedTaskManager)
     return instances
 
 
@@ -121,7 +121,7 @@ async def test_headless_delivers_background_result_without_team(
     isolated_project, task_managers, monkeypatch, capsys, fork
 ):
     client = BackgroundClient(fork=fork)
-    monkeypatch.setattr("likecc.client.create_client", lambda provider: client)
+    monkeypatch.setattr("eviforge.client.create_client", lambda provider: client)
     await asyncio.wait_for(
         entrypoint._run_prompt_with_hook_cleanup(
             isolated_project, PermissionMode.BYPASS, None, "Delegate the task"
@@ -140,7 +140,7 @@ async def test_headless_background_deadline_cancels_and_reaps_workers(
     isolated_project, task_managers, monkeypatch
 ):
     client = BackgroundClient(blocked=True)
-    monkeypatch.setattr("likecc.client.create_client", lambda provider: client)
+    monkeypatch.setattr("eviforge.client.create_client", lambda provider: client)
     monkeypatch.setattr(entrypoint, "HEADLESS_BACKGROUND_TIMEOUT", 0.02)
     with pytest.raises(TimeoutError):
         await asyncio.wait_for(
@@ -160,7 +160,7 @@ async def test_headless_parent_failure_preserves_error_and_cleans_workers_and_ho
     isolated_project, task_managers, monkeypatch, wait_for_child
 ):
     client = BackgroundClient(blocked=True, parent_error=True, wait_for_child=wait_for_child)
-    monkeypatch.setattr("likecc.client.create_client", lambda provider: client)
+    monkeypatch.setattr("eviforge.client.create_client", lambda provider: client)
     hooks = HookEngine([
         Hook(id="stopped", event="shutdown", action=Action(type="prompt", message="stopped"))
     ])
@@ -184,7 +184,7 @@ async def test_headless_external_cancellation_reaps_workers(
     isolated_project, task_managers, monkeypatch
 ):
     client = BackgroundClient(blocked=True)
-    monkeypatch.setattr("likecc.client.create_client", lambda provider: client)
+    monkeypatch.setattr("eviforge.client.create_client", lambda provider: client)
     run = asyncio.create_task(entrypoint._run_prompt_with_hook_cleanup(
         isolated_project, PermissionMode.BYPASS, None, "Delegate the task"
     ))
@@ -213,8 +213,8 @@ def test_real_cli_p_uses_isolated_config_and_fake_provider(
             yield TextDelta("offline-cli-result")
             yield StreamEnd("end_turn")
 
-    monkeypatch.setattr("likecc.client.create_client", lambda provider: TextClient())
-    monkeypatch.setattr(sys, "argv", ["likecc", "-p", "offline prompt"])
+    monkeypatch.setattr("eviforge.client.create_client", lambda provider: TextClient())
+    monkeypatch.setattr(sys, "argv", ["eviforge", "-p", "offline prompt"])
     entrypoint.main()
     assert capsys.readouterr().out.strip() == "offline-cli-result"
     assert task_managers[0]._async_tasks == {}

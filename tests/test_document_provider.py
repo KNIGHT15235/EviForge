@@ -9,12 +9,12 @@ import pytest
 from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 
-from likecc.client import (
+from eviforge.client import (
     AuthenticationError, LLMError, NetworkError, RateLimitError, create_client,
 )
-from likecc.config import ProviderConfig
-from likecc.conversation import ConversationManager
-from likecc.tools.base import StreamEnd, TextDelta, ToolCallComplete, ToolCallStart
+from eviforge.config import ProviderConfig
+from eviforge.conversation import ConversationManager
+from eviforge.tools.base import StreamEnd, TextDelta, ToolCallComplete, ToolCallStart
 
 
 PROVIDERS = ("anthropic", "openai", "openai-compat")
@@ -124,8 +124,8 @@ def make_wire_client(monkeypatch):
         http_client = httpx.AsyncClient(transport=httpx.MockTransport(transport_handler))
         real_sdk = AsyncAnthropic if protocol == "anthropic" else AsyncOpenAI
         factory_name = "AsyncAnthropic" if protocol == "anthropic" else "AsyncOpenAI"
-        monkeypatch.setattr(f"likecc.client.{factory_name}",
-                            lambda **kwargs: real_sdk(**kwargs, http_client=http_client, max_retries=0))
+        monkeypatch.setattr(f"eviforge.client.{factory_name}",
+            lambda **kwargs: real_sdk(**{**kwargs, "http_client": http_client, "max_retries": 0}))
         base_url = "https://provider.invalid" if protocol == "anthropic" else "https://provider.invalid/v1"
         config = ProviderConfig("offline", protocol, base_url, "test-model",
                                 api_key="test-placeholder-key", max_output_tokens=1234)

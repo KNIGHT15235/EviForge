@@ -24,20 +24,24 @@ def check_installed() -> None:
     from importlib.metadata import distribution
     from importlib.resources import files
 
-    import likecc
-    from likecc.agents.loader import AgentLoader
-    from likecc.skills.directory import load_tool_implementation, parse_tool_json
-    from likecc.skills.loader import SkillLoader
+    import eviforge
+    from eviforge.agents.loader import AgentLoader
+    from eviforge.skills.directory import load_tool_implementation, parse_tool_json
+    from eviforge.skills.loader import SkillLoader
 
-    source_package = Path(__file__).resolve().parents[1] / "likecc"
-    installed_package = Path(likecc.__file__).resolve().parent
+    source_package = Path(__file__).resolve().parents[1] / "eviforge"
+    installed_package = Path(eviforge.__file__).resolve().parent
     require(
         not installed_package.is_relative_to(source_package),
         "Imported the source checkout instead of the installed wheel.",
     )
-    package = files("likecc")
+    package = files("eviforge")
     resources = [
         "styles.tcss",
+        "schemas/run-result-v1.schema.json",
+        "schemas/run-event-v1.schema.json",
+        "schemas/dag-graph-v1.schema.json",
+        "schemas/dag-output-v1.schema.json",
         "agents/builtins/explore.md",
         "agents/builtins/plan.md",
         "agents/builtins/general-purpose.md",
@@ -74,16 +78,23 @@ def check_installed() -> None:
         "The packaged Skill reference implementation did not load.",
     )
 
-    metadata = distribution("likecc")
-    entrypoints = [entry for entry in metadata.entry_points if entry.group == "console_scripts" and entry.name == "likecc"]
-    require(len(entrypoints) == 1, "The wheel must install one likecc console entry point.")
-    require(entrypoints[0].value == "likecc.__main__:main", "Unexpected console entry point.")
-    cli = Path(sysconfig.get_path("scripts")) / ("likecc.exe" if os.name == "nt" else "likecc")
-    require(cli.is_file(), "The likecc console command was not installed.")
-    for command in ([str(cli), "--help"], [sys.executable, "-I", "-m", "likecc", "--help"]):
+    metadata = distribution("eviforge")
+    entrypoints = [entry for entry in metadata.entry_points if entry.group == "console_scripts" and entry.name == "eviforge"]
+    require(len(entrypoints) == 1, "The wheel must install one eviforge console entry point.")
+    require(entrypoints[0].value == "eviforge.__main__:main", "Unexpected console entry point.")
+    cli = Path(sysconfig.get_path("scripts")) / ("eviforge.exe" if os.name == "nt" else "eviforge")
+    require(cli.is_file(), "The eviforge console command was not installed.")
+    for command in ([str(cli), "--help"], [sys.executable, "-I", "-m", "eviforge", "--help"]):
         result = subprocess.run(command, check=True, capture_output=True, text=True, timeout=30)
-        require("LikeCC" in result.stdout and "usage: likecc" in result.stdout, "CLI help did not identify LikeCC.")
-    print(f"LikeCC {metadata.version}: installed wheel, resources, loaders and CLI checks passed.")
+        require("EviForge" in result.stdout and "usage: eviforge" in result.stdout, "CLI help did not identify EviForge.")
+    import json
+    result = subprocess.run([str(cli), "schema"], check=True, capture_output=True, text=True, timeout=30)
+    require(json.loads(result.stdout)["title"] == "RunResult", "Installed result schema did not load")
+    result = subprocess.run([str(cli), "dag", "schema"], check=True, capture_output=True, text=True, timeout=30)
+    require(json.loads(result.stdout)["schema_version"] == "1.0", "Installed DAG schema did not load")
+    result = subprocess.run([str(cli), "governance", "list"], check=True, capture_output=True, text=True, timeout=30)
+    require(json.loads(result.stdout)["ok"], "Installed governance CLI did not work without Provider config")
+    print(f"EviForge {metadata.version}: installed wheel, resources, loaders and CLI checks passed.")
 
 
 def main() -> None:
@@ -94,7 +105,7 @@ def main() -> None:
         check_installed()
         return
 
-    with tempfile.TemporaryDirectory(prefix="likecc-distribution-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="eviforge-distribution-") as temporary:
         environment = os.environ.copy()
         environment.pop("PYTHONPATH", None)
         environment["HOME"] = temporary
