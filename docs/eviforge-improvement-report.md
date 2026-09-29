@@ -2,15 +2,15 @@
 
 ## 范围和结论
 
-本实现以用户提供的最新简历截图为功能依据，以 LikeCC 源代码和 `LikeCC.md` 为兼容基线。新增功能围绕可验证执行、故障恢复和经验治理，不以复现简历实验数值作为验收条件。
+本版本以 LikeCC 源代码及其 720 项回归测试为兼容基线，新增可验证执行、故障恢复和经验治理。本文对照源代码说明方法与功能的变化，实验结论以实际测试记录为准。
 
-代码位于独立的 `Eviforge` 目录，包、CLI、配置目录和项目指令分别为 `eviforge`、`eviforge`、`.eviforge`、`EVIFORGE.md`。原 LikeCC 未被修改。实现与测试结果不包含向 GitHub 发布的步骤。
+包、CLI、配置目录和项目指令分别为 `eviforge`、`eviforge`、`.eviforge`、`EVIFORGE.md`。[EviForge](https://github.com/KNIGHT15235/EviForge) 作为独立演进项目发布，[LikeCC](https://github.com/KNIGHT15235/likecc) 保留为学习版基线。本文记录 2026-09-22 完成的实现与本地验收；最新远程验证以仓库 CI 为准。
 
 复制基线为 LikeCC 提交 `4a9b77d281646385bf48fd85b8a03c4d28bbee23`，共 178 个文件，逐文件哈希复核无变化。原有 133 个 Python 模块中，108 个在名称替换后保持一致，25 个做了功能修改，另新增 24 个 Python 模块。约 **81.2% 的原模块只改命名**；修改模块继续复用原有类、工具、消息模型与管理器。详细清单见 [复用证据](reuse-evidence.json)。
 
 ## 功能对照
 
-| 简历方向 | LikeCC 基线 | EviForge 实现 | 主要入口 |
+| 能力方向 | LikeCC 基线 | EviForge 实现 | 主要入口 |
 | --- | --- | --- | --- |
 | Agent 运行内核 | TUI 与非交互运行有独立循环和不同服务装配 | `run_to_completion` 成为共同 ReAct 循环的事件适配器；Memory、Skill、MCP、Session、SubAgent、Team 共用装配；公共生命周期等待、取消、回收 | `agent.py`、`runtime.py`、`lifecycle.py` |
 | Plan 与安全审计 | 主要通过权限模式和计划文件控制执行，审批可切到宽松模式 | PlanSession 状态机，session / source turn / execution turn / content hash 绑定；冻结审批界面；精确 argv、参数、cwd、文件与网络范围、有效期、调用次数；最终执行入口再次检查 | `planning/`、`permissions/capabilities.py`、`app.py` |

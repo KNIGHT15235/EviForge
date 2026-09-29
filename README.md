@@ -1,5 +1,7 @@
 # EviForge
 
+[![CI](https://github.com/KNIGHT15235/EviForge/actions/workflows/ci.yml/badge.svg)](https://github.com/KNIGHT15235/EviForge/actions/workflows/ci.yml)
+
 **可验证、可恢复、会进化的终端 Coding Agent。**
 
 EviForge 在 [LikeCC](https://github.com/KNIGHT15235/likecc) 的 Python ReAct 内核上扩展了版本化计划审批、受治理的记忆与 Skill、Typed DAG 多 Agent 工作流，以及可供脚本读取的执行结果。Textual TUI 和非交互命令共用运行循环与服务装配。
@@ -23,9 +25,11 @@ EviForge 在 [LikeCC](https://github.com/KNIGHT15235/likecc) 的 Python ReAct �
 
 需要 Python 3.11+。推荐 Linux 或 Windows WSL；原有 `Bash.command` 依赖 `bash`，Worktree 需要 Git。`Bash.argv` 直接启动指定程序。
 
-在本项目目录执行：
+克隆本仓库并安装锁定依赖：
 
 ```bash
+git clone https://github.com/KNIGHT15235/EviForge.git
+cd EviForge
 uv sync --locked
 uv run --locked eviforge --help
 ```
