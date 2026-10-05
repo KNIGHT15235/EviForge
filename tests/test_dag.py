@@ -337,6 +337,28 @@ def test_sqlite_owner_and_fence(project):
     first.close()
 
 
+def test_owner_probe_never_signals_current_process(monkeypatch):
+    import os
+    from eviforge.dag.journal import _process_is_alive
+    def forbidden(*args):
+        raise AssertionError('Owner existence checks must not signal this process')
+    monkeypatch.setattr(os, 'kill', forbidden)
+    assert _process_is_alive(os.getpid())
+
+
+def test_owner_probe_distinguishes_live_and_exited_child():
+    import subprocess
+    from eviforge.dag.journal import _process_is_alive
+    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], creationflags=flags)
+    try:
+        assert _process_is_alive(child.pid)
+    finally:
+        child.terminate()
+        child.wait(timeout=5)
+    assert not _process_is_alive(child.pid)
+
+
 @pytest.mark.asyncio
 async def test_offline_cli_does_not_load_config(project, capsys, monkeypatch):
     from eviforge.dag.cli import register_parser, handle

@@ -11,6 +11,38 @@ from typing import Any
 from eviforge.dag.graph import DAGError, DriftError
 
 
+def _process_is_alive(pid: int) -> bool:
+    """Check an owner without sending Windows CTRL_C_EVENT (whose value is 0)."""
+    if pid == os.getpid():
+        return True
+    if os.name == 'nt':
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        kernel.WaitForSingleObject.restype = wintypes.DWORD
+        kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel.CloseHandle.restype = wintypes.BOOL
+        handle = kernel.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE, no terminate rights
+        if not handle:
+            if ctypes.get_last_error() in (87, 1168):  # invalid PID / not found
+                return False
+            return True  # Permission/unknown errors fail closed: never steal a live run.
+        try:
+            return kernel.WaitForSingleObject(handle, 0) != 0  # WAIT_OBJECT_0 means exited
+        finally:
+            kernel.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 class SQLiteJournal:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -60,11 +92,7 @@ class SQLiteJournal:
                 if old["graph_hash"] != graph_hash or old["capability_hash"] != capability_hash:
                     raise DriftError("Graph or effective capabilities changed")
                 if old["status"] == "running":
-                    try:
-                        os.kill(old["pid"], 0)
-                    except ProcessLookupError:
-                        pass
-                    else:
+                    if _process_is_alive(old["pid"]):
                         raise DAGError("Run already has a live owner")
                 self.fence = old["fence"] + 1
                 self.db.execute("UPDATE runs SET owner=?,pid=?,fence=?,status='running' WHERE id=?",

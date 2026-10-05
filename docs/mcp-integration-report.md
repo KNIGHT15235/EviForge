@@ -36,7 +36,7 @@
 ## 3. 验证层次与事实
 
 1. 基线 Linux 离线测试：893 项通过，作为改动前参照。
-2. 最终 Windows 全量：**919 项通过、5 项平台跳过，89.93 秒**。跳过条件为符号链接权限/系统文件条件、大小写敏感文件系统和 POSIX 进程组；这些平台边界继续由 Linux CI 检查。没有为通过测试而删除测试或扩大通用跳过范围。
+2. 最终 Windows 全量（包含发布时发现的 DAG 进程探测修复）：**921 项通过、5 项平台跳过，86.46 秒**。跳过条件为符号链接权限/系统文件条件、大小写敏感文件系统和 POSIX 进程组；这些平台边界继续由 Linux CI 检查。没有为通过测试而删除测试或扩大通用跳过范围。
 3. 最近 MCP/Plan/原运行时集中回归：179 项通过、4 项跳过；新增 endpoint 漂移后的 MCP/Plan 集中回归：61 项通过、2 项跳过。
 4. SubAgent 离线组件：90/90 通过，包含加载、过滤、Fork、追踪、后台取消/回收和通知；故障用例中的 `boom` 是预期注入。
 5. 五服务验收通过生产 MCP Client → Manager → Wrapper → Registry 路径，而非直接 REST 调用替代核心验收。GitHub REST 只用于准备测试分支、独立核对与关闭对象。
@@ -44,7 +44,7 @@
 7. 联合流程 PNG 9,026 字节，SHA-256：`18c52eee3bcaef3652222d2cd6bbe1d3b5b4efe0be542ff79c8392a8ba3dd4cf`。校验实际归档文件，不只比较文字占位。
 8. `0.2.0` wheel/sdist 构建，并在独立环境、临时 HOME、源码目录之外验证资源、内置 Agent/Skill、CLI、RunResult/DAG Schema、经验治理及无 Provider 的 MCP 列表。
 
-远端首轮 Linux CI：924 项通过、SubAgent 90/90、构建和独立 wheel 检查通过。手动 live workflow 的 Context7 与隔离 Chromium 验收通过，GitHub CI 写入未启用。首轮 Windows 测试摘要为 182 项通过、2 项跳过，但 uv 启动入口返回非零状态；Windows CI 改为直接运行锁定环境的 Python，并显式记录/传递 pytest 退出码，最终以新提交 CI 为准。
+远端首轮 Linux CI：924 项通过、SubAgent 90/90、构建和独立 wheel 检查通过。手动 live workflow 的 Context7 与隔离 Chromium 验收通过，GitHub CI 写入未启用。Windows 前两轮测试断言均为 182 项通过、2 项跳过，但收尾发生 KeyboardInterrupt；直接使用锁定环境的 Python 记录退出码后，定位到原 DAG 的 `os.kill(pid, 0)` 存活探测在 Windows 触发控制台信号。修复为当前 PID 直接判断、Windows 只读进程句柄查询、POSIX 保留零信号探测，补充不发送当前进程信号及活/已退出子进程回归。最终发布仍以修复提交的完整 CI 成功为门禁。
 
 私人业务内容、具体飞书资源、应用密钥、Token、OAuth store、截图和原始回执仅存于 Git 忽略目录；公开报告包含验收摘要和可复现实验脚本，不包含这些凭据。
 
@@ -58,6 +58,7 @@
 - Qwen 使用错误的 Responses 协议：改用该端点对应的 Chat Completions / `openai-compat`，真实模型流程通过。
 - Playwright 新版 schema 要求 `target` 和截图 `scale`：使用实际发现结果，不硬套旧示例字段。
 - 启动 guard 前 cwd 未展开环境变量、能力指纹未展开 endpoint 等字段：统一展开并增加拒绝旧能力调用的回归用例。
+- DAG 存活 owner 查询的 `os.kill(pid, 0)` 在 Windows 控制台中具有信号副作用：改为不带终止权限的 `OpenProcess(SYNCHRONIZE)` / `WaitForSingleObject(handle, 0)`，任何权限或未知错误保守视为存活，避免窃取运行。参见 [Python os.kill](https://docs.python.org/3/library/os.html#os.kill) 和 [Windows 控制台信号](https://learn.microsoft.com/en-us/windows/console/generateconsolectrlevent)。
 
 ## 5. 版本、CI 和发布规则
 
