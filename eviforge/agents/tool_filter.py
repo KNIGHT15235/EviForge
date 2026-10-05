@@ -135,7 +135,7 @@ def resolve_agent_tools(
 
     # MCP tools bypass the built-in background whitelist, but must still obey
     # an Agent definition's explicit capability restrictions below.
-    mcp_tools = {name: tool for name, tool in all_tools.items() if _is_mcp_tool(name)}
+    mcp_tools = {name: tool for name, tool in all_tools.items() if _is_mcp_tool(name) and getattr(tool, "may_delegate", True)}
     all_tools = {name: tool for name, tool in all_tools.items() if not _is_mcp_tool(name)}
 
     # 第 1 层：全局禁用工具
@@ -194,7 +194,7 @@ def build_teammate_tools(
         filtered = {
             name: tool
             for name, tool in all_tools.items()
-            if name in IN_PROCESS_TEAMMATE_ALLOWED_TOOLS or _is_mcp_tool(name)
+            if name in IN_PROCESS_TEAMMATE_ALLOWED_TOOLS or (_is_mcp_tool(name) and getattr(tool, "may_delegate", True))
         }
     else:
         filtered = {t.name: t for t in parent_registry.list_tools()}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import asyncio
+from pathlib import Path
 from contextlib import AsyncExitStack
 from typing import Any
 
@@ -11,7 +12,8 @@ from mcp import ClientSession, types
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
 
-from eviforge.config import MCPServerConfig, build_child_env, resolve_env_vars
+from eviforge.config import MCPServerConfig, ConfigError, build_child_env, resolve_env_vars
+from eviforge.mcp.diagnostics import resolve_required
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,9 @@ class MCPClient:
         self._alive = False
         self._owner_task: asyncio.Task | None = None
         self._stop: asyncio.Event | None = None
+        self.server_info: dict[str, Any] = {}
+        self._connect_lock = asyncio.Lock()
+        self.generation = 0
 
 
     @property
@@ -33,8 +38,14 @@ class MCPClient:
 
 
     async def connect(self) -> None:
+        async with self._connect_lock:
+            await self._connect_serial()
+
+    async def _connect_serial(self) -> None:
         if self._alive:
             return
+        if self.config.integration == "playwright" and not self.config.is_stdio:
+            raise ConfigError("Managed Playwright requires the locally guarded stdio transport")
 
         if self._owner_task is not None:
             await self.close()
@@ -59,7 +70,8 @@ class MCPClient:
 
         self._owner_task = asyncio.create_task(own_connection(), name=f"mcp-{self.name}")
         try:
-            await asyncio.shield(ready)
+            async with asyncio.timeout(self.config.startup_timeout_seconds):
+                await asyncio.shield(ready)
         except BaseException:
             if not ready.done():
                 ready.cancel()
@@ -83,9 +95,11 @@ class MCPClient:
             session = await self._stack.enter_async_context(
                 ClientSession(read, write)
             )
-            await session.initialize()
+            initialized = await session.initialize()
+            self.server_info = {"name": initialized.serverInfo.name, "version": initialized.serverInfo.version, "protocol_version": initialized.protocolVersion}
             self._session = session
             self._alive = True
+            self.generation += 1
             logger.info("MCP server '%s' connected", self.name)
         except Exception:
             await self._cleanup_stack()
@@ -96,10 +110,16 @@ class MCPClient:
         assert self._stack is not None
         assert self.config.command is not None
 
+        args = [resolve_required(value) for value in self.config.args]
+        cwd = resolve_required(self.config.cwd) if self.config.cwd else None
+        if self.config.integration == "playwright":
+            from eviforge.mcp.browser_guard import guarded_args
+            args = guarded_args(self.config, args, Path(cwd or Path.cwd()))
         params = StdioServerParameters(
-            command=self.config.command,
-            args=self.config.args,
-            env=build_child_env(self.config.env),
+            command=resolve_required(self.config.command),
+            args=args,
+            env=self._child_env(),
+            cwd=cwd,
         )
         devnull = open(os.devnull, "w")
         self._stack.callback(devnull.close)
@@ -108,21 +128,30 @@ class MCPClient:
         )
         return read, write
 
+    def _child_env(self) -> dict[str, str]:
+        declared = {key: resolve_required(value) for key, value in self.config.env.items()}
+        env = build_child_env(declared)
+        for key in ("SYSTEMROOT", "SystemRoot", "SystemDrive", "COMSPEC", "PATHEXT", "TEMP", "TMP", "HOME", "USERPROFILE", "LANG", "LOCALAPPDATA", "APPDATA", "ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "ALLUSERSPROFILE"):
+            if key in os.environ and key not in env:
+                env[key] = os.environ[key]
+        return env
+
     async def _connect_http(self) -> tuple[Any, Any]:
         assert self._stack is not None
         assert self.config.url is not None
 
         resolved_headers = {
-            k: resolve_env_vars(v) for k, v in self.config.headers.items()
+            k: resolve_required(v) for k, v in self.config.headers.items()
         }
         http_client = httpx.AsyncClient(
             headers=resolved_headers,
-            follow_redirects=True,
+            follow_redirects=False,
+            timeout=self.config.call_timeout_seconds,
         )
         await self._stack.enter_async_context(http_client)
 
         result = await self._stack.enter_async_context(
-            streamable_http_client(self.config.url, http_client=http_client)
+            streamable_http_client(resolve_required(self.config.url), http_client=http_client)
         )
         read, write = result[0], result[1]
         return read, write
@@ -130,15 +159,28 @@ class MCPClient:
 
     async def list_tools(self) -> list[types.Tool]:
         assert self._session is not None
-        result = await self._session.list_tools()
-        return list(result.tools)
+        tools: list[types.Tool] = []
+        cursors: set[str] = set()
+        cursor = None
+        async with asyncio.timeout(self.config.startup_timeout_seconds):
+            for _ in range(100):
+                result = await self._session.list_tools(cursor=cursor) if cursor else await self._session.list_tools()
+                tools.extend(result.tools)
+                cursor = result.nextCursor
+                if not cursor:
+                    return tools
+                if cursor in cursors:
+                    raise ValueError("Repeated MCP tool pagination cursor")
+                cursors.add(cursor)
+        raise ValueError("MCP tool pagination limit exceeded")
 
 
     async def call_tool(
         self, name: str, arguments: dict[str, Any]
     ) -> types.CallToolResult:
         assert self._session is not None
-        return await self._session.call_tool(name, arguments)
+        async with asyncio.timeout(self.config.call_timeout_seconds):
+            return await self._session.call_tool(name, arguments)
 
     async def close(self) -> None:
         owner = self._owner_task

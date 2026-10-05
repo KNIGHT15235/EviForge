@@ -516,6 +516,12 @@ class Agent:
     async def run(self, conversation: ConversationManager) -> AsyncIterator[AgentEvent]:
         self.last_run_status = "running"
         self.last_run_error = ""
+        runtime = getattr(self, "runtime", None)
+        if runtime is not None and runtime.mcp_manager.required_failures:
+            self.last_run_status = "failed"
+            self.last_run_error = "Required MCP services unavailable: " + ", ".join(runtime.mcp_manager.required_failures)
+            yield ErrorEvent(message=self.last_run_error)
+            return
         self.turn_id = self.turn_id or uuid.uuid4().hex
         self._current_conversation = conversation
         env_context = build_environment_context(
@@ -904,6 +910,10 @@ class Agent:
             exit_plan_called = any(result.tool_use_id in exit_plan_ids and not result.is_error
                                    for result in tool_results)
             conversation.add_tool_results_message(tool_results)
+            if self.last_run_status == "ambiguous":
+                yield TurnComplete(turn=iteration)
+                yield LoopComplete(total_turns=iteration)
+                break
             if exit_plan_called:
                 self.last_run_status = "approval_required"
                 self.last_run_error = "Plan submitted; explicit approval of its content hash is required"
@@ -946,6 +956,12 @@ class Agent:
     def _check_tool_permission(
         self, tool: Any, arguments: dict[str, Any], work_dir: str
     ) -> Decision | None:
+        from eviforge.mcp.tool_wrapper import MCPToolWrapper
+        if type(tool) is MCPToolWrapper:
+            try:
+                tool.resource_ids(arguments, work_dir)
+            except ValueError as exc:
+                return Decision("deny", str(exc))
         if self.plan_service is not None:
             gate = self.plan_service.precheck(self, tool, arguments, work_dir)
             if gate is not None:
@@ -975,7 +991,7 @@ class Agent:
         # shared by multiple Agents, so their constructor-level history is only
         # a fallback for direct calls, never implicit Agent state.
         with tool_working_directory(work_dir, file_history=self.file_history):
-            params = tool.params_model.model_validate(arguments)
+            params = tool.validate_arguments(arguments)
             if self.permission_checker is not None:
                 final_decision = self.permission_checker.check(tool, arguments)
                 if final_decision.effect == "deny":
@@ -992,6 +1008,9 @@ class Agent:
                 raise
             if self.plan_service is not None:
                 self.plan_service.record_result(self, tool.name, is_error=result.is_error)
+            if result.execution_status in {"ambiguous", "completed_unarchived"}:
+                self.last_run_status = "ambiguous"
+                self.last_run_error = result.output
             return result
 
     def _fork_tool_rejection(self, tool_name: str) -> ToolResult | None:

@@ -1,0 +1,4 @@
+# Install in a separate optional environment, Python >=3.12.
+serena-agent==1.7.0
+# Python language server provisioned by Serena; prepare this separately:
+# uvx -p 3.13 --from pyright==1.1.403 pyright --version

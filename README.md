@@ -21,6 +21,10 @@ EviForge 在 [LikeCC](https://github.com/KNIGHT15235/likecc) 的 Python ReAct �
 
 详细实现与验证证据见 [改进报告](docs/eviforge-improvement-report.md) 和 [测试说明](docs/verification.md)。
 
+本版新增 GitHub、Context7、Playwright、飞书和 Serena MCP 的托管配置、完整 Schema 校验、资源范围、Plan 绑定、真实截图证据及外部写入恢复控制。配置均默认关闭；使用与权限边界见 [MCP 使用文档](docs/mcp-usage.md)，模板见 [五项服务配置](integrations/mcp.example.yaml)。
+
+`0.2.0` 的实际验收与限制见 [MCP 实施报告](docs/mcp-integration-report.md)，接入原理和口述稿见 [飞书与 GitHub MCP 讲解](docs/mcp-interview-guide.md)。飞书文档、Base、任务与报告导入已验收；消息和 Wiki 按操作者决定暂缓，普通 Sheets 未验收。
+
 ## 安装和运行
 
 需要 Python 3.11+。推荐 Linux 或 Windows WSL；原有 `Bash.command` 依赖 `bash`，Worktree 需要 Git。`Bash.argv` 直接启动指定程序。

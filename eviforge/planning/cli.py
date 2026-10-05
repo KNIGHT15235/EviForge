@@ -12,6 +12,8 @@ from eviforge.planning import PlanError, PlanService
 def register_parser(subparsers: Any) -> None:
     parser = subparsers.add_parser("plan", help="Inspect, submit, approve or reject a versioned plan")
     parser.add_argument("--work-dir", default=".")
+    parser.add_argument("--mcp-config", help="Explicit MCP YAML for reviewing managed external actions")
+    parser.set_defaults(handler=handle_connected)
     actions = parser.add_subparsers(dest="plan_command", required=True)
     create = actions.add_parser("create", help="Create and submit a reviewable plan")
     create.add_argument("--session-id", required=True)
@@ -34,9 +36,31 @@ def register_parser(subparsers: Any) -> None:
     reject.add_argument("--reason", default="user rejected")
 
 
-def handle(args: argparse.Namespace) -> int:
+async def handle_connected(args: argparse.Namespace) -> int:
+    """Bind MCP manifests to current discovery without requiring an LLM Provider."""
+    service = PlanService(args.work_dir)
+    actions = []
+    if args.plan_command == 'create' and args.actions_file:
+        actions = json.loads(Path(args.actions_file).read_text(encoding='utf-8'))
+    elif args.plan_command == 'approve':
+        actions = [action.as_dict() for action in service.get(args.plan_id).actions]
+    if not any(isinstance(action, dict) and action.get('tool_name', '').startswith('mcp_') for action in actions):
+        return handle(args, service=service)
+    from eviforge.mcp.cli import load_servers
+    from eviforge.mcp.manager import MCPManager
+    from eviforge.tools import ToolRegistry
+    manager, registry = MCPManager(), ToolRegistry()
+    manager.load_configs(load_servers(getattr(args, 'mcp_config', None), args.work_dir))
     try:
-        service = PlanService(args.work_dir)
+        await manager.register_all_tools(registry)
+        return handle(args, service=PlanService(args.work_dir, tool_resolver=registry.get))
+    finally:
+        await manager.shutdown()
+
+
+def handle(args: argparse.Namespace, *, service: PlanService | None = None) -> int:
+    try:
+        service = service or PlanService(args.work_dir)
         if args.plan_command == "create":
             path = Path(args.content_file).resolve()
             content = path.read_text(encoding="utf-8")

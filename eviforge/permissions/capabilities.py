@@ -58,6 +58,8 @@ class ExecutionIntent:
     write_paths: tuple[str, ...] = ()
     network_hosts: tuple[str, ...] = ()
     opaque_process: bool = False
+    resource_ids: tuple[str, ...] = ()
+    capability_fingerprint: str = ""
 
     @property
     def intent_hash(self) -> str:
@@ -78,10 +80,16 @@ class PlanAction:
     network_hosts: tuple[str, ...] = ()
     uses: int = 1
     opaque_process: bool = False
+    resource_ids: tuple[str, ...] = ()
+    capability_fingerprint: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         result = asdict(self)
         result["arguments"] = json.loads(result.pop("arguments_json"))
+        if not self.resource_ids:
+            result.pop("resource_ids")
+        if not self.capability_fingerprint:
+            result.pop("capability_fingerprint")
         return result
 
     def matches(self, intent: ExecutionIntent) -> bool:
@@ -92,6 +100,8 @@ class PlanAction:
             and all(within(path, self.read_paths) for path in intent.read_paths)
             and all(within(path, self.write_paths) for path in intent.write_paths)
             and set(intent.network_hosts).issubset(self.network_hosts)
+            and self.resource_ids == intent.resource_ids
+            and self.capability_fingerprint == intent.capability_fingerprint
         )
 
 
@@ -126,6 +136,12 @@ def builtin_type(name: str) -> type:
 
 
 def execution_intent(tool: Any, arguments: dict[str, Any], cwd: str) -> ExecutionIntent:
+    from eviforge.mcp.tool_wrapper import MCPToolWrapper
+    if type(tool) is MCPToolWrapper and tool.config.integration != "custom":
+        directory = canonical_path(cwd, str(Path.cwd()))
+        selectors = tool.resource_ids(arguments, directory)
+        return ExecutionIntent(tool.name, canonical_json(arguments), directory,
+            resource_ids=selectors, capability_fingerprint=tool.capability_fingerprint)
     from eviforge.dag.capabilities import ScopedTool
     if type(tool) is ScopedTool:
         # This exact internal wrapper performs its own narrower DAG check again
@@ -160,16 +176,21 @@ def execution_intent(tool: Any, arguments: dict[str, Any], cwd: str) -> Executio
     return ExecutionIntent(tool.name, canonical_json(args), directory, argv, read_paths, write_paths, hosts, tool.name == "Bash")
 
 
-def normalize_action(raw: dict[str, Any], default_cwd: str) -> PlanAction:
+def normalize_action(raw: dict[str, Any], default_cwd: str, tool_resolver: Any = None) -> PlanAction:
     """Freeze validated arguments and explicit scope ceilings into a plan action."""
     from eviforge.tools.http_request import normalize_host_scope
-    if set(raw) - {"tool_name", "arguments", "cwd", "read_paths", "write_paths", "network_hosts", "uses", "opaque_process"}:
+    if set(raw) - {"tool_name", "arguments", "cwd", "read_paths", "write_paths", "network_hosts", "uses", "opaque_process", "resource_ids", "capability_fingerprint"}:
         raise ValueError("Unknown plan action fields")
     tool_name = raw["tool_name"]
-    cls = builtin_type(tool_name)
+    from eviforge.mcp.tool_wrapper import MCPToolWrapper
+    resolved = tool_resolver(tool_name) if tool_resolver is not None else None
+    if type(resolved) is MCPToolWrapper:
+        tool = resolved
+    else:
+        cls = builtin_type(tool_name)
     # Only its class and parameter model are needed; constructor dependencies
     # (file caches/HTTP transport) must never execute during plan validation.
-    tool = object.__new__(cls)
+        tool = object.__new__(cls)
     intent = execution_intent(tool, raw.get("arguments", {}), raw.get("cwd", default_cwd))
     reads = tuple(sorted({canonical_path(path, intent.cwd) for path in raw.get("read_paths", intent.read_paths)}))
     writes = tuple(sorted({canonical_path(path, intent.cwd) for path in raw.get("write_paths", intent.write_paths)}))
@@ -177,7 +198,9 @@ def normalize_action(raw: dict[str, Any], default_cwd: str) -> PlanAction:
     uses = raw.get("uses", 1)
     if isinstance(uses, bool) or not isinstance(uses, int) or not 1 <= uses <= 100:
         raise ValueError("uses must be an integer between 1 and 100")
-    action = PlanAction(tool_name, intent.arguments_json, intent.cwd, reads, writes, hosts, uses, intent.opaque_process)
+    selectors = tuple(raw.get("resource_ids", intent.resource_ids))
+    capability = raw.get("capability_fingerprint", intent.capability_fingerprint)
+    action = PlanAction(tool_name, intent.arguments_json, intent.cwd, reads, writes, hosts, uses, intent.opaque_process, selectors, capability)
     if not action.matches(intent):
         raise ValueError("ACTION_OUTSIDE_SCOPE: concrete arguments exceed their declared resource scopes")
     return action

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -463,7 +464,7 @@ class TestWorktreeManager:
             ToolCallComplete("read", "ReadFile", {"file_path": "README.md"})
         )
         bash_result = await agent._execute_tool_noninteractive(
-            ToolCallComplete("pwd", "Bash", {"command": "pwd"})
+            ToolCallComplete("pwd", "Bash", {"argv": [sys.executable, "-c", "import os; print(os.getcwd())"]})
         )
 
         assert not read_result.is_error
@@ -518,7 +519,7 @@ class TestWorktreeManager:
 
         async def run(agent: Agent, content: str):
             pwd_result = await agent._execute_tool_noninteractive(
-                ToolCallComplete(f"pwd-{content}", "Bash", {"command": "pwd"})
+                ToolCallComplete(f"pwd-{content}", "Bash", {"argv": [sys.executable, "-c", "import os; print(os.getcwd())"]})
             )
             write_result = await agent._execute_tool_noninteractive(
                 ToolCallComplete(

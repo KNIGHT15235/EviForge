@@ -188,7 +188,12 @@ async def test_real_agent_cannot_escape_write_set(project, target):
 async def test_symlink_escape_is_denied(project):
     outside = project.parent / "outside"
     outside.mkdir()
-    (project / "link").symlink_to(outside, target_is_directory=True)
+    try:
+        (project / "link").symlink_to(outside, target_is_directory=True)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows symlink privilege unavailable; this boundary is tested by Linux CI")
+        raise
     agent = parent(project, {"i": [("WriteFile", {"file_path": "link/bad", "content": "bad"})]})
     result = await DAGRunner(agent).run(GraphSpec(nodes=[NodeSpec(id="i", role="implementer", goal="x", write_set=["link"])]))
     assert result.status == "ambiguous"

@@ -130,6 +130,8 @@ def validate_mcp_servers(raw_mcp: list | None) -> list[dict]:
         name = entry.get("name")
         if not name:
             raise ConfigError(f"MCP server #{i + 1}: missing 'name'")
+        if not isinstance(name, str) or any(s["name"] == name for s in servers):
+            raise ConfigError(f"MCP server #{i + 1}: name must be a unique string")
         has_command = "command" in entry
         has_url = "url" in entry
         if has_command and has_url:
@@ -140,6 +142,47 @@ def validate_mcp_servers(raw_mcp: list | None) -> list[dict]:
             raise ConfigError(
                 f"MCP server '{name}': must have either 'command' or 'url'"
             )
+        for key in ("command", "url"):
+            if key in entry and (not isinstance(entry[key], str) or not entry[key].strip()):
+                raise ConfigError(f"MCP server '{name}': {key} must be a non-empty string")
+        if has_url:
+            from urllib.parse import urlsplit
+            parsed = urlsplit(entry["url"])
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+                raise ConfigError(f"MCP server '{name}': invalid HTTP URL")
+        for key in ("args", "allowed_tools", "denied_tools"):
+            if not isinstance(entry.get(key, []), list) or not all(isinstance(x, str) for x in entry.get(key, [])):
+                raise ConfigError(f"MCP server '{name}': {key} must be a list of strings")
+        for key in ("env", "headers"):
+            value = entry.get(key, {})
+            if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+                raise ConfigError(f"MCP server '{name}': {key} must be a string mapping")
+        for key in ("enabled", "required"):
+            if not isinstance(entry.get(key, key == "enabled"), bool):
+                raise ConfigError(f"MCP server '{name}': {key} must be boolean")
+        if entry.get("integration", "custom") not in {"custom", "github", "context7", "playwright", "feishu", "serena"}:
+            raise ConfigError(f"MCP server '{name}': unsupported integration")
+        for key in ("startup_timeout_seconds", "call_timeout_seconds"):
+            value = entry.get(key, 60)
+            if isinstance(value, bool) or not isinstance(value, (float, int)) or not 0 < value <= 600:
+                raise ConfigError(f"MCP server '{name}': {key} must be between 0 and 600 seconds")
+        if entry.get("cwd") is not None and not isinstance(entry["cwd"], str):
+            raise ConfigError(f"MCP server '{name}': cwd must be a string")
+        if not isinstance(entry.get("policy", {}), dict):
+            raise ConfigError(f"MCP server '{name}': policy must be a mapping")
+        policy = entry.get("policy", {})
+        for key in ("auth_store", "project"):
+            if key in policy and (not isinstance(policy[key], str) or not policy[key].strip()):
+                raise ConfigError(f"MCP server '{name}': policy.{key} must be a non-empty path string")
+        for key in ("allow_writes", "allow_messages", "allow_create_documents", "allow_create_tasks", "allow_discovery"):
+            if key in policy and not isinstance(policy[key], bool):
+                raise ConfigError(f"MCP server '{name}': policy.{key} must be boolean")
+        for key in ("repositories", "documents", "tables", "tasks", "chats", "wiki_nodes", "origins"):
+            if key in policy and (not isinstance(policy[key], list) or not all(isinstance(item, str) for item in policy[key])):
+                raise ConfigError(f"MCP server '{name}': policy.{key} must be a list of strings")
+        for key, ceiling in (("max_artifact_bytes", 33554432), ("max_output_chars", 1000000)):
+            if key in policy and (type(policy[key]) is not int or not 0 < policy[key] <= ceiling):
+                raise ConfigError(f"MCP server '{name}': invalid policy.{key}")
         servers.append(
             {
                 "name": name,
@@ -148,6 +191,11 @@ def validate_mcp_servers(raw_mcp: list | None) -> list[dict]:
                 "url": entry.get("url"),
                 "headers": entry.get("headers", {}),
                 "env": entry.get("env", {}),
+                **{key: entry.get(key, default) for key, default in {
+                    "enabled": True, "integration": "custom", "required": False, "cwd": None,
+                    "startup_timeout_seconds": 60, "call_timeout_seconds": 60,
+                    "allowed_tools": [], "denied_tools": [], "policy": {},
+                }.items()},
             }
         )
 

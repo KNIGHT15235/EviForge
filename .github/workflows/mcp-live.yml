@@ -1,0 +1,77 @@
+name: Manual MCP acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      github_write_tests:
+        description: "Create and close disposable Issue/draft PR in KNIGHT15235/arve-agent (requires MCP_GITHUB_TOKEN secret)"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  public-read-and-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+      UV_PYTHON: "3.11"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - run: python -m pip install uv==0.11.8
+      - run: uv sync --locked --group dev
+      - name: Install locked official MCP servers and isolated Chromium
+        run: |
+          npm ci --prefix integrations/node
+          node integrations/node/node_modules/playwright-core/cli.js install --with-deps chromium
+      - name: Verify Context7 public reads
+        run: uv run --no-sync python scripts/verify_context7_mcp.py
+      - name: Verify browser interactions, real screenshot and egress guard
+        run: uv run --no-sync python scripts/verify_playwright_mcp.py --node node --mcp-cli "$GITHUB_WORKSPACE/integrations/node/node_modules/@playwright/mcp/cli.js" --browser chromium
+
+  github-explicit-write:
+    if: ${{ inputs.github_write_tests && github.repository == 'KNIGHT15235/EviForge' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: "1"
+      UV_PYTHON: "3.11"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - run: python -m pip install uv==0.11.8
+      - run: uv sync --locked --group dev
+      - name: Write an ephemeral credential file without printing secrets
+        env:
+          MCP_TEST_TOKEN: ${{ secrets.MCP_GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          token = os.environ.get('MCP_TEST_TOKEN')
+          if not token:
+              raise SystemExit('Set MCP_GITHUB_TOKEN before explicitly enabling GitHub write acceptance')
+          target = Path(os.environ['RUNNER_TEMP'])/'mcp-test-credentials.json'
+          target.write_text(json.dumps({'EVIFORGE_GITHUB_TOKEN':token}), encoding='utf-8')
+          target.chmod(0o600)
+          PY
+      - name: Verify designated disposable repository through production MCP
+        run: uv run --no-sync python scripts/verify_github_mcp.py --credentials "$RUNNER_TEMP/mcp-test-credentials.json" --repository KNIGHT15235/arve-agent --allow-write
+      - name: Remove ephemeral credentials
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/mcp-test-credentials.json"

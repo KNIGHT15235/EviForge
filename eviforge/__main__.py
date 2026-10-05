@@ -53,6 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
     governance_parser(subparsers)
     planning_parser(subparsers)
     dag_parser(subparsers)
+    from eviforge.mcp.cli import register_parser as mcp_parser
+    mcp_parser(subparsers)
     return parser
 
 
@@ -206,6 +208,11 @@ async def _run_prompt(config, permission_mode, hook_engine, prompt: str, *, opti
         result.session_id = agent.session_id
         result.trace_id = agent.trace_id or agent.agent_id
         runtime.begin_turn()
+        for error in await runtime.start_mcp():
+            journal.emit({"type": "mcp_warning", "message": error})
+        result.metadata["mcp"] = runtime.mcp_manager.status()
+        if runtime.mcp_manager.required_failures:
+            raise ConfigError("Required MCP services unavailable: " + ", ".join(runtime.mcp_manager.required_failures))
         if options.approved_plan:
             snapshot = runtime.plan_service.get(options.approved_plan)
             approved = runtime.plan_service.approve(snapshot.plan_id, options.plan_hash,
@@ -217,8 +224,6 @@ async def _run_prompt(config, permission_mode, hook_engine, prompt: str, *, opti
             await hook_engine.run_hooks("startup", HookContext(event_name="startup", work_dir=os.getcwd()))
             hook_engine._headless_started = True
         journal.emit({"type": "run_started", "session_id": result.session_id, "trace_id": result.trace_id})
-        for error in await runtime.start_mcp():
-            journal.emit({"type": "mcp_warning", "message": error})
 
         async def complete(task: str) -> None:
             result.output = await agent.run_to_completion(task, conversation, event_callback=journal.emit)

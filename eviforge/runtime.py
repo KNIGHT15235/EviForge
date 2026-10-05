@@ -99,7 +99,7 @@ class RuntimeServices:
         self.agent.trace_id = uuid.uuid4().hex
         self.agent.file_history = self.file_history
         self.agent.runtime = self
-        self.plan_service = PlanService(self.work_dir)
+        self.plan_service = PlanService(self.work_dir, tool_resolver=self.registry.get)
         self.plan_service.bind_agent(self.agent)
         for tool in self.registry.list_tools():
             if hasattr(tool, "file_history"):

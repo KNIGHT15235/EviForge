@@ -110,6 +110,15 @@ class MCPServerConfig:
     url: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
+    enabled: bool = True
+    integration: str = "custom"
+    required: bool = False
+    cwd: str | None = None
+    startup_timeout_seconds: float = 60
+    call_timeout_seconds: float = 60
+    allowed_tools: list[str] = field(default_factory=list)
+    denied_tools: list[str] = field(default_factory=list)
+    policy: dict = field(default_factory=dict)
 
 
     @property
@@ -160,14 +169,7 @@ def _load_single_file(path: Path) -> AppConfig:
     ]
 
     mcp_servers = [
-        MCPServerConfig(
-            name=s["name"],
-            command=s["command"],
-            args=s["args"],
-            url=s["url"],
-            headers=s["headers"],
-            env=s["env"],
-        )
+        MCPServerConfig(**s)
         for s in validated["mcp_servers"]
     ]
 

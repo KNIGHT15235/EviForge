@@ -27,3 +27,5 @@ audit/
 .vscode/
 .DS_Store
 Thumbs.db
+.serena/
+node_modules/

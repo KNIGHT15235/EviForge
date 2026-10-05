@@ -17,6 +17,9 @@ ToolCategory = Literal["read", "write", "command"]
 class ToolResult:
     output: str
     is_error: bool = False
+    structured_content: dict[str, Any] | None = None
+    artifacts: tuple[dict[str, Any], ...] = ()
+    execution_status: str = "completed"
 
 
 class Tool(ABC):
@@ -27,6 +30,9 @@ class Tool(ABC):
     is_concurrency_safe: bool = False
     is_system_tool: bool = False
     should_defer: bool = False
+
+    def validate_arguments(self, arguments: dict[str, Any]) -> BaseModel:
+        return self.params_model.model_validate(arguments)
 
     @property
     def is_read_only(self) -> bool:

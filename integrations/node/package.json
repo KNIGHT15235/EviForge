@@ -1,0 +1,11 @@
+{
+  "name": "eviforge-mcp-servers",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Pinned optional official MCP servers; not part of the Python wheel",
+  "engines": {"node": ">=20"},
+  "dependencies": {
+    "@larksuiteoapi/lark-mcp": "0.5.1",
+    "@playwright/mcp": "0.0.83"
+  }
+}

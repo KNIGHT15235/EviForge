@@ -72,7 +72,7 @@ class PlanService:
     tools. This does not protect against the OS user or arbitrary allowed code.
     """
 
-    def __init__(self, work_dir: str | Path, *, clock: Callable[[], float] = time.time) -> None:
+    def __init__(self, work_dir: str | Path, *, clock: Callable[[], float] = time.time, tool_resolver: Callable | None = None) -> None:
         self.work_dir = str(Path(work_dir).resolve())
         self._directory = Path(self.work_dir) / ".eviforge" / "plans"
         self._clock = clock
@@ -86,6 +86,7 @@ class PlanService:
         self._bound_agents: dict[int, Any] = {}
         self._draft_owners: dict[str, int] = {}
         self._audit = PlanAudit(self._directory / "audit.jsonl")
+        self.tool_resolver = tool_resolver
 
     @staticmethod
     def _hash(content: str, actions: tuple[PlanAction, ...]) -> str:
@@ -110,7 +111,7 @@ class PlanService:
         return plan
 
     def _actions(self, actions: list[dict[str, Any]] | tuple[PlanAction, ...]) -> tuple[PlanAction, ...]:
-        normalized = tuple(action if isinstance(action, PlanAction) else normalize_action(action, self.work_dir) for action in actions)
+        normalized = tuple(action if isinstance(action, PlanAction) else normalize_action(action, self.work_dir, self.tool_resolver) for action in actions)
         for action in normalized:
             if not within(action.cwd, [self.work_dir]):
                 raise PlanError("CWD_OUTSIDE_PROJECT", "Action cwd must stay in the project")
@@ -142,7 +143,19 @@ class PlanService:
                 raw = json.loads((self._directory / f"{plan_id}.json").read_text(encoding="utf-8"))
                 if raw.pop("schema_version") != 1 or raw["plan_id"] != plan_id:
                     raise ValueError("Invalid snapshot schema or identity")
-                raw["actions"] = self._actions(raw["actions"])
+                restored = []
+                for action in raw["actions"]:
+                    if action.get("capability_fingerprint"):
+                        snapshot = dict(action)
+                        from eviforge.permissions.capabilities import canonical_json
+                        snapshot["arguments_json"] = canonical_json(snapshot.pop("arguments"))
+                        for key in ("read_paths", "write_paths", "network_hosts", "resource_ids"):
+                            if key in snapshot:
+                                snapshot[key] = tuple(snapshot[key])
+                        restored.append(PlanAction(**snapshot))
+                    else:
+                        restored.append(normalize_action(action, self.work_dir))
+                raw["actions"] = self._actions(tuple(restored))
                 raw["state"] = PlanState(raw["state"])
                 plan = PlanSession(**raw)
                 if self._hash(plan.content, plan.actions) != plan.content_hash:
@@ -210,6 +223,10 @@ class PlanService:
             if not math.isfinite(ttl_seconds) or not 0 < ttl_seconds <= 3600:
                 raise PlanError("INVALID_EXPIRY", "Approval validity must be greater than zero and at most one hour")
             self._check_content(plan)
+            for action in plan.actions:
+                # Snapshot inspection does not confer authority. Revalidate
+                # external adapters against this process's current registry.
+                normalize_action(action.as_dict(), self.work_dir, self.tool_resolver)
             self._revoke(plan_id)
             expiry = self._clock() + ttl_seconds
             plan = self._store(replace(plan, state=PlanState.APPROVED, execution_turn_id=execution_turn_id,
@@ -321,7 +338,7 @@ class PlanService:
         if not relative.parts:
             return True
         first = relative.parts[0]
-        if first in {"governance", "approvals", "audit", "dag"} or first.startswith(("permissions", "governance.sqlite3")):
+        if first in {"governance", "approvals", "audit", "dag", "mcp", "integration"} or first.startswith(("permissions", "governance.sqlite3")):
             return True
         return first == "plans" and (len(relative.parts) == 1 or Path(path).suffix != ".md")
 
@@ -397,6 +414,9 @@ class PlanService:
             if any(not within(path, [self.work_dir]) for path in (*intent.read_paths, *intent.write_paths)):
                 return deny("PATH_OUTSIDE_PROJECT", "Tool path is outside the project")
             if planning:
+                from eviforge.mcp.tool_wrapper import MCPToolWrapper
+                if type(tool) is MCPToolWrapper and tool.config.integration != "custom" and tool.category == "read":
+                    return GateDecision(True, "PLAN_MCP_READ", "Read through a locally reviewed resource adapter")
                 if intent.tool_name in {"ReadFile", "Glob", "Grep"}:
                     return GateDecision(True, "PLAN_READ", "Planning read within the project")
                 if (plan.state == PlanState.DRAFT and plan.plan_path and intent.write_paths == (plan.plan_path,)

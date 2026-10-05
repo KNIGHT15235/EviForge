@@ -94,6 +94,8 @@ def check_installed() -> None:
     require(json.loads(result.stdout)["schema_version"] == "1.0", "Installed DAG schema did not load")
     result = subprocess.run([str(cli), "governance", "list"], check=True, capture_output=True, text=True, timeout=30)
     require(json.loads(result.stdout)["ok"], "Installed governance CLI did not work without Provider config")
+    result = subprocess.run([str(cli), "mcp", "list"], check=True, capture_output=True, text=True, timeout=30)
+    require(json.loads(result.stdout)["servers"] == [], "Installed MCP diagnostics did not work without Provider config")
     print(f"EviForge {metadata.version}: installed wheel, resources, loaders and CLI checks passed.")
 
 

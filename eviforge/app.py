@@ -1725,7 +1725,7 @@ class EviForgeApp(App):
             self._show_system_message(f"MCP warning: {err}")
         tools_after = len(self.registry.list_tools())
         mcp_tools = tools_after - tools_before
-        server_count = len(manager._clients)
+        server_count = sum(item["state"] == "connected" for item in manager.status())
         if server_count > 0:
             self._mcp_server_info = (
                 f"Connected to {server_count} MCP server(s), {mcp_tools} tools registered"
@@ -1734,10 +1734,7 @@ class EviForgeApp(App):
             parts = []
             for cfg in self._mcp_server_configs:
                 srv_name = cfg.name if hasattr(cfg, 'name') else str(cfg)
-                tool_names = [
-                    t.name for t in self.registry.list_tools()
-                    if t.name.startswith(f"mcp__{srv_name}__")
-                ]
+                tool_names = manager.tool_names(srv_name)
                 section = f"## {srv_name}\n"
                 if tool_names:
                     section += "Available tools: " + ", ".join(tool_names)

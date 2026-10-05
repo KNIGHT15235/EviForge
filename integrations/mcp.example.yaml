@@ -1,0 +1,80 @@
+# Copy the selected entries into .eviforge/config.yaml. Replace resource scopes.
+# Disabled by default; no credentials or personal resource IDs are shipped.
+mcp_servers:
+  - name: github
+    enabled: false
+    integration: github
+    required: false
+    url: https://api.githubcopilot.com/mcp/
+    headers:
+      Authorization: Bearer ${EVIFORGE_GITHUB_TOKEN}
+      X-MCP-Toolsets: repos,issues,pull_requests
+    allowed_tools: [get_file_contents, list_branches, list_commits, get_commit, list_issues, issue_read, list_pull_requests, pull_request_read, search_repositories, search_code, search_issues, search_pull_requests, issue_write, create_pull_request]
+    policy:
+      repositories: [YOUR_OWNER/YOUR_TEST_REPOSITORY]
+      allow_writes: false
+
+  - name: context7
+    enabled: false
+    integration: context7
+    url: https://mcp.context7.com/mcp
+    allowed_tools: [resolve-library-id, query-docs]
+    # Anonymous access was verified; add CONTEXT7_API_KEY header if your account requires it.
+
+  - name: playwright
+    enabled: false
+    integration: playwright
+    command: ${EVIFORGE_MCP_NODE}
+    args: ["${EVIFORGE_MCP_NODE_MODULES}/@playwright/mcp/cli.js", --headless, --browser, chromium]
+    cwd: ${EVIFORGE_MCP_PROJECT}
+    startup_timeout_seconds: 90
+    call_timeout_seconds: 45
+    allowed_tools: [browser_navigate, browser_snapshot, browser_click, browser_fill_form, browser_type, browser_press_key, browser_wait_for, browser_take_screenshot, browser_close]
+    policy:
+      origins: [http://127.0.0.1:8080]
+      max_artifact_bytes: 8388608
+      max_output_chars: 64000
+
+  - name: feishu
+    enabled: false
+    integration: feishu
+    command: ${EVIFORGE_MCP_NODE}
+    args:
+      - "${EVIFORGE_MCP_NODE_MODULES}/@larksuiteoapi/lark-mcp/dist/cli.js"
+      - mcp
+      - --oauth
+      - --token-mode
+      - user_access_token
+      - --tool-name-case
+      - dot
+      - --tools
+      - docx.v1.document.rawContent,docx.builtin.import,bitable.v1.appTableField.list,bitable.v1.appTableRecord.search,bitable.v1.appTableRecord.create,bitable.v1.appTableRecord.update,task.v2.task.create,task.v2.task.patch
+    env:
+      APP_ID: ${EVIFORGE_FEISHU_APP_ID}
+      APP_SECRET: ${EVIFORGE_FEISHU_APP_SECRET}
+      LOCALAPPDATA: ${EVIFORGE_FEISHU_AUTH_DIRECTORY}
+      APPDATA: ${EVIFORGE_FEISHU_AUTH_DIRECTORY}
+    allowed_tools: [docx.v1.document.rawContent, docx.builtin.import, bitable.v1.appTableField.list, bitable.v1.appTableRecord.search, bitable.v1.appTableRecord.create, bitable.v1.appTableRecord.update, task.v2.task.create, task.v2.task.patch]
+    policy:
+      auth_store: ${EVIFORGE_FEISHU_AUTH_STORE}
+      documents: [YOUR_DOCUMENT_TOKEN]
+      tables: [YOUR_BASE_TOKEN/YOUR_TABLE_ID]
+      tasks: []
+      chats: []
+      allow_writes: false
+      allow_messages: false
+      allow_create_documents: false
+      allow_create_tasks: false
+      allow_discovery: false
+
+  - name: serena
+    enabled: false
+    integration: serena
+    command: ${EVIFORGE_SERENA_COMMAND}
+    args: [start-mcp-server, --project, "${EVIFORGE_MCP_PROJECT}", --context, desktop-app, --mode, planning, --enable-web-dashboard, "false", --enable-gui-log-window, "false", --open-web-dashboard, "false"]
+    cwd: ${EVIFORGE_MCP_PROJECT}
+    startup_timeout_seconds: 180
+    call_timeout_seconds: 90
+    allowed_tools: [find_symbol, find_referencing_symbols, get_symbols_overview, search_for_pattern, list_dir, find_file, read_file]
+    policy:
+      project: ${EVIFORGE_MCP_PROJECT}

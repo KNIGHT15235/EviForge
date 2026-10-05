@@ -36,14 +36,13 @@ def turn(*events):
 async def test_six_real_tools_complete_a_file_workflow(tmp_path):
     target = tmp_path / "sample.py"
     check = f"from pathlib import Path; assert Path({str(target)!r}).read_text() == 'value = 2\\n'; print('checked')"
-    command = f"{shlex.quote(sys.executable)} -c {shlex.quote(check)}"
     client = ScriptedClient([
         turn(ToolCallComplete("write", "WriteFile", {"file_path": str(target), "content": "value = 1\n"})),
         turn(ToolCallComplete("read", "ReadFile", {"file_path": str(target)})),
         turn(ToolCallComplete("edit", "EditFile", {"file_path": str(target), "old_string": "value = 1", "new_string": "value = 2"})),
         turn(ToolCallComplete("glob", "Glob", {"pattern": "*.py"})),
         turn(ToolCallComplete("grep", "Grep", {"pattern": "value = 2"})),
-        turn(ToolCallComplete("bash", "Bash", {"command": command})),
+        turn(ToolCallComplete("bash", "Bash", {"argv": [sys.executable, "-c", check]})),
         turn(TextDelta("verified")),
     ])
     agent = Agent(client, create_default_registry(), "anthropic", work_dir=str(tmp_path))

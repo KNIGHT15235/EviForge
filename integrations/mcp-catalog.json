@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "project_version": "0.2.0",
+  "verified_on": "2026-10-05",
+  "defaults": {"enabled": false, "remote_writes": false},
+  "client_sdk": {"package": "mcp", "version": "1.27.0", "lock": "uv.lock"},
+  "services": [
+    {
+      "name": "github",
+      "transport": "streamable-http",
+      "endpoint": "https://api.githubcopilot.com/mcp/",
+      "authentication": "Bearer token from environment",
+      "observed_server_version": "github-mcp-server/remote-5eb8d4198234331d10b6f78790fe109cc8d526b2",
+      "version_is_pinned": false,
+      "discovered_tools": 39,
+      "profile_tools": 14,
+      "verified_tools": ["get_file_contents", "search_issues", "issue_write:create", "issue_read:get", "create_pull_request:draft", "pull_request_read:get"],
+      "status": "passed",
+      "limits": ["Exact repository scopes", "No merge, delete, organization administration or code push tool"]
+    },
+    {
+      "name": "context7",
+      "transport": "streamable-http",
+      "endpoint": "https://mcp.context7.com/mcp",
+      "authentication": "Anonymous access verified; optional account API key",
+      "observed_server_version": "4.1.1",
+      "version_is_pinned": false,
+      "verified_tools": ["resolve-library-id", "query-docs"],
+      "status": "passed"
+    },
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "package": "@playwright/mcp",
+      "package_version": "0.0.83",
+      "dependency_lock": "integrations/node/package-lock.json",
+      "observed_server_version": "1.64.0-alpha-1790635538000",
+      "verified_browser": "Microsoft Edge 154.0.4258.53 on Windows",
+      "verified_tools": ["browser_navigate", "browser_snapshot", "browser_fill_form", "browser_click", "browser_take_screenshot", "browser_close"],
+      "status": "passed",
+      "limits": ["Isolated context and exact HTTP(S) origins", "Redirects, WebSockets, workers and arbitrary evaluate disabled", "Browser request guard is not an OS sandbox"]
+    },
+    {
+      "name": "feishu",
+      "transport": "stdio",
+      "package": "@larksuiteoapi/lark-mcp",
+      "package_version": "0.5.1",
+      "dependency_lock": "integrations/node/package-lock.json",
+      "authentication": "User OAuth/PKCE, official encrypted token store; useUAT=true",
+      "verified_tools": ["docx.v1.document.rawContent", "docx.builtin.import", "bitable.v1.appTableField.list", "bitable.v1.appTableRecord.search", "bitable.v1.appTableRecord.create", "bitable.v1.appTableRecord.update", "task.v2.task.create", "task.v2.task.patch"],
+      "status": "passed_with_deferred_capabilities",
+      "deferred": ["Message send/history", "Wiki live acceptance"],
+      "limits": ["Official message tools are tenant-only; real API rejected user token", "Ordinary Sheets not verified", "No global search or existing-document editing claim"]
+    },
+    {
+      "name": "serena",
+      "transport": "stdio",
+      "package": "serena-agent",
+      "package_version": "1.7.0",
+      "dependency_reference": "integrations/serena-requirements.txt",
+      "observed_server_version": "1.28.1",
+      "language_server": {"package": "pyright", "version": "1.1.403", "python": "3.13"},
+      "verified_tools": ["get_symbols_overview", "find_symbol", "find_referencing_symbols", "search_for_pattern", "read_file"],
+      "status": "passed",
+      "limits": ["Read-only profile bound to one project/worktree", "No remote edit, shell, memory write or project switch"]
+    }
+  ],
+  "notes": [
+    "Package versions and MCP serverInfo versions are distinct.",
+    "Remote observed versions cannot freeze a hosted service; schema/capability drift revokes old grants.",
+    "Node transitive dependencies are locked. Serena's top-level version is pinned; its transitive dependency graph is not a universal cross-platform lock."
+  ]
+}
