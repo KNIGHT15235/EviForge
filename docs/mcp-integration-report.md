@@ -44,6 +44,8 @@
 7. 联合流程 PNG 9,026 字节，SHA-256：`18c52eee3bcaef3652222d2cd6bbe1d3b5b4efe0be542ff79c8392a8ba3dd4cf`。校验实际归档文件，不只比较文字占位。
 8. `0.2.0` wheel/sdist 构建，并在独立环境、临时 HOME、源码目录之外验证资源、内置 Agent/Skill、CLI、RunResult/DAG Schema、经验治理及无 Provider 的 MCP 列表。
 
+远端首轮 Linux CI：924 项通过、SubAgent 90/90、构建和独立 wheel 检查通过。手动 live workflow 的 Context7 与隔离 Chromium 验收通过，GitHub CI 写入未启用。首轮 Windows 测试摘要为 182 项通过、2 项跳过，但 uv 启动入口返回非零状态；Windows CI 改为直接运行锁定环境的 Python，并显式记录/传递 pytest 退出码，最终以新提交 CI 为准。
+
 私人业务内容、具体飞书资源、应用密钥、Token、OAuth store、截图和原始回执仅存于 Git 忽略目录；公开报告包含验收摘要和可复现实验脚本，不包含这些凭据。
 
 ## 4. 测试中发现并修复的问题
