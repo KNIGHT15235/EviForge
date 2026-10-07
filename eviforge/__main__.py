@@ -13,7 +13,7 @@ from pathlib import Path
 
 from eviforge.automation import EventJournal, RunResult, write_result, EXIT_CODES
 from eviforge.config import ConfigError, load_config
-from eviforge.hooks import HookConfigError, HookContext, HookEngine, load_hooks
+from eviforge.hooks import HookConfigError, HookContext, HookEngine, create_hook_engine
 from eviforge.permissions import PermissionMode
 
 HEADLESS_BACKGROUND_TIMEOUT = 180.0
@@ -99,7 +99,7 @@ def main() -> None:
             raise ValueError("Approved execution requires -p, --resume-session and an execution mode")
         config = load_config()
         mode = PermissionMode(args.mode or config.permission_mode)
-        hooks = load_hooks(config.raw_hooks)
+        hook_engine = create_hook_engine(config)
     except (ConfigError, HookConfigError, ValueError) as exc:
         result = RunResult.failure("failed", "config_error", str(exc))
         result.exit_code = EXIT_CODES["config_error"]
@@ -109,7 +109,6 @@ def main() -> None:
     Path(".eviforge").mkdir(parents=True, exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s",
                         filename=".eviforge/debug.log", filemode="a")
-    hook_engine = HookEngine(hooks) if hooks else None
     if args.p is not None:
         try:
             asyncio.run(_run_prompt_with_hook_cleanup(config, mode, hook_engine, args.p, options=options))
@@ -268,6 +267,12 @@ async def _run_prompt(config, permission_mode, hook_engine, prompt: str, *, opti
                     runtime.session_recorder.flush(runtime.conversation)
                     result.input_tokens = runtime.agent.total_input_tokens
                     result.output_tokens = runtime.agent.total_output_tokens
+                    if runtime.agent.hook_engine is not None:
+                        verification = runtime.agent.hook_engine.verification_summary(
+                            runtime.agent._build_hook_context("session_end")
+                        )
+                        if verification:
+                            result.metadata["hook_verification"] = verification
                     from eviforge.planning import PlanState
                     plan = runtime.plan_service.current_plan(runtime.agent)
                     if plan is not None:

@@ -139,6 +139,7 @@ class AppConfig:
     permission_mode: str = "default"
     mcp_servers: list[MCPServerConfig] = field(default_factory=list)
     raw_hooks: list[dict] = field(default_factory=list)
+    hook_policy: dict = field(default_factory=dict)
     enable_fork: bool = False
     enable_verification_agent: bool = False
     worktree: WorktreeConfig = field(default_factory=WorktreeConfig)
@@ -185,6 +186,7 @@ def _load_single_file(path: Path) -> AppConfig:
         permission_mode=validated["permission_mode"],
         mcp_servers=mcp_servers,
         raw_hooks=validated["hooks"],
+        hook_policy=validated["hook_policy"],
         enable_fork=validated["enable_fork"],
         enable_verification_agent=validated["enable_verification_agent"],
         worktree=worktree_cfg,
@@ -209,6 +211,7 @@ def _merge_config(base: AppConfig, override: AppConfig) -> AppConfig:
                 by_name[s.name] = len(base.mcp_servers) - 1
 
     base.raw_hooks.extend(override.raw_hooks)
+    base.hook_policy.update(override.hook_policy)
     if override.enable_fork:
         base.enable_fork = True
     if override.enable_verification_agent:

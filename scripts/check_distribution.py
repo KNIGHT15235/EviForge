@@ -96,6 +96,25 @@ def check_installed() -> None:
     require(json.loads(result.stdout)["ok"], "Installed governance CLI did not work without Provider config")
     result = subprocess.run([str(cli), "mcp", "list"], check=True, capture_output=True, text=True, timeout=30)
     require(json.loads(result.stdout)["servers"] == [], "Installed MCP diagnostics did not work without Provider config")
+    import asyncio
+    from eviforge.config import AppConfig
+    from eviforge.hooks import HookContext, create_hook_engine
+
+    async def check_hooks() -> None:
+        engine = create_hook_engine(AppConfig(providers=[]))
+        require(engine is not None and len(engine.hooks) == 4, "Packaged default Hook preset did not load")
+        context = HookContext(work_dir=str(Path.cwd()), session_id="wheel", turn_id="check", agent_id="main")
+        await engine.begin_run(context)
+        source = Path("hook-wheel-check.py")
+        source.write_text("value = 1\n", encoding="utf-8")
+        await engine.run_hooks("session_end", context)
+        summary = engine.verification_summary(context)
+        require(summary["status"] == "partial" and Path(summary["report_path"]).exists(), "Installed Hook evidence was not generated")
+        source.write_text("value = (\n", encoding="utf-8")
+        await engine.run_hooks("turn_end", context)
+        require(bool(engine.completion_failure(context)), "Installed Hook failed to detect invalid code")
+
+    asyncio.run(check_hooks())
     print(f"EviForge {metadata.version}: installed wheel, resources, loaders and CLI checks passed.")
 
 

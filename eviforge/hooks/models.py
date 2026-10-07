@@ -17,12 +17,14 @@ class Action:
     headers: dict[str, str] = field(default_factory=dict)
     prompt: str = ""
     timeout: int = 30
+    builtin: str = ""
 
 
 @dataclass
 class ActionResult:
     output: str = ""
     success: bool = True
+    blocking: bool = False
 
 
 @dataclass
@@ -35,6 +37,7 @@ class Hook:
     once: bool = False
     async_exec: bool = False
     executed: bool = False
+    scope: str = "all"
 
 
     def should_run(self) -> bool:
@@ -56,12 +59,24 @@ class HookContext:
     message: str = ""
     error: str = ""
     work_dir: str = ""
+    session_id: str = ""
+    turn_id: str = ""
+    agent_id: str = ""
+    parent_id: str = ""
+    tool_succeeded: bool | None = None
+    tool_output: str = ""
+    tool_status: str = ""
+    run_status: str = ""
 
     def get_field(self, name: str) -> str:
         if name == "tool":
             return self.tool_name
         if name == "event":
             return self.event_name
+        if name in {"session_id", "turn_id", "agent_id", "parent_id", "run_status"}:
+            return str(getattr(self, name))
+        if name == "tool_succeeded":
+            return "" if self.tool_succeeded is None else str(self.tool_succeeded).lower()
         if name.startswith("args."):
             key = name[5:]
             value = self.tool_args.get(key, "")
@@ -75,6 +90,8 @@ class HookContext:
         result = result.replace("$FILE_PATH", self.file_path)
         result = result.replace("$MESSAGE", self.message)
         result = result.replace("$ERROR", self.error)
+        for name in ("session_id", "turn_id", "agent_id", "parent_id", "tool_output", "tool_status"):
+            result = result.replace("$" + name.upper(), str(getattr(self, name)))
         for key, value in self.tool_args.items():
             result = result.replace(f"$TOOL_ARGS.{key}", str(value))
         return result

@@ -16,6 +16,7 @@ from eviforge.hooks.models import (
     HookContext,
     ToolRejectedError,
 )
+from eviforge.hooks.defaults import create_hook_engine
 
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "LifecycleEvent",
     "ToolRejectedError",
     "load_hooks",
+    "create_hook_engine",
     "parse_condition",
 ]

@@ -261,6 +261,33 @@ def validate_teammate_mode(mode: object) -> str:
     return mode
 
 
+def validate_hook_policy(raw: object) -> dict:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict) or set(raw) - {"enabled", "checks"}:
+        raise ConfigError("hook_policy must be a mapping with enabled/checks fields")
+    result = dict(raw)
+    if "enabled" in raw:
+        result["enabled"] = validate_bool_field(raw["enabled"], "hook_policy.enabled")
+    if "checks" in raw:
+        if not isinstance(raw["checks"], list):
+            raise ConfigError("hook_policy.checks must be a list")
+        checks = []
+        for check in raw["checks"]:
+            if not isinstance(check, dict) or set(check) - {"name", "argv", "timeout"}:
+                raise ConfigError("Hook checks require name, argv and optional timeout")
+            argv = check.get("argv")
+            timeout = check.get("timeout", 30)
+            if (not isinstance(check.get("name"), str) or not check["name"].strip()
+                    or not isinstance(argv, list) or not argv
+                    or any(not isinstance(arg, str) or not arg for arg in argv)
+                    or isinstance(timeout, bool) or not isinstance(timeout, int) or not 0 < timeout <= 30):
+                raise ConfigError("Hook checks require a name, nonempty argv and timeout of 1..30 seconds")
+            checks.append({"name": check["name"], "argv": list(argv), "timeout": timeout})
+        result["checks"] = checks
+    return result
+
+
 def validate_config_structure(raw: object) -> dict:
     """校验的主入口。校验解析后的原始配置，返回清洗后的字典。
 
@@ -277,6 +304,7 @@ def validate_config_structure(raw: object) -> dict:
         "permission_mode": validate_permission_mode(raw.get("permission_mode", "default")),
         "mcp_servers": validate_mcp_servers(raw.get("mcp_servers")),
         "hooks": validate_hooks(raw.get("hooks")),
+        "hook_policy": validate_hook_policy(raw.get("hook_policy")),
         "enable_fork": validate_bool_field(raw.get("enable_fork", False), "enable_fork"),
         "enable_verification_agent": validate_bool_field(
             raw.get("enable_verification_agent", False), "enable_verification_agent"

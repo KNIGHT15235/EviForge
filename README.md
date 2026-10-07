@@ -52,6 +52,8 @@ uv run --locked eviforge --mode plan
 
 默认 `default` 权限模式仍需确认写操作；非交互入口遇到未获许可的操作会拒绝，并以 `blocked` / 退出码 3 返回。选择 `acceptEdits` 只改变相应权限策略，显式 deny 和计划约束仍然有效。
 
+`0.3.0` 默认启用四类 Hook：保护敏感文件、验收要求提醒、轮末变更检查和最终证据报告。检查失败会反馈给 Agent；最多允许两次完成阶段修复重试，持续失败返回 `failed`。未配置项目测试时明确记录“未验证”，不会将语法检查当作测试通过。默认 Hook 保留只读工具并行；自定义工具 Hook 保持顺序执行。配置、范围和限制见 [Hook 使用说明](docs/hooks.md)，实际验证见 [集成报告](docs/hook-integration-report.md)。
+
 ## 计划、经验与 DAG
 
 - [计划与自动化](docs/automation-and-plans.md)：审阅计划内容及 action manifest，按哈希批准；读取 RunResult 和 JSONL。

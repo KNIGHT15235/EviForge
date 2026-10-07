@@ -1,6 +1,6 @@
 [project]
 name = "eviforge"
-version = "0.2.0"
+version = "0.3.0"
 description = "A verifiable, recoverable terminal coding agent with governed experience and typed Agent workflows"
 readme = "README.md"
 license = "MIT"

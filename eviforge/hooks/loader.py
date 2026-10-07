@@ -6,13 +6,14 @@ from eviforge.hooks.events import LifecycleEvent
 from eviforge.hooks.models import Action, Hook
 
 _VALID_EVENTS = {e.value for e in LifecycleEvent}
-_VALID_ACTION_TYPES = {"command", "prompt", "http", "agent"}
+_VALID_ACTION_TYPES = {"command", "prompt", "http", "agent", "builtin"}
 
 _REQUIRED_FIELDS: dict[str, list[str]] = {
     "command": ["command"],
     "prompt": ["message"],
     "http": ["url"],
     "agent": ["prompt"],
+    "builtin": ["builtin"],
 }
 
 
@@ -65,6 +66,13 @@ def load_hooks(raw_hooks: list[dict] | None) -> list[Hook]:
                 )
 
         reject = bool(entry.get("reject", False))
+        scope = entry.get("scope", "all")
+        if not isinstance(scope, str) or scope not in {"all", "main"}:
+            raise HookConfigError(f"{label}: scope must be all or main")
+        if action_type == "builtin":
+            from eviforge.hooks.defaults import BUILTIN_EVENTS
+            if not isinstance(raw_action["builtin"], str) or BUILTIN_EVENTS.get(raw_action["builtin"]) != event:
+                raise HookConfigError(f"{label}: builtin does not support this event")
         if reject and event != "pre_tool_use":
             raise HookConfigError(
                 f"{label}: 'reject' can only be used with 'pre_tool_use' event"
@@ -75,6 +83,8 @@ def load_hooks(raw_hooks: list[dict] | None) -> list[Hook]:
             raise HookConfigError(
                 f"{label}: 'async' cannot be used with 'pre_tool_use' event"
             )
+        if async_exec and action_type == "builtin":
+            raise HookConfigError(f"{label}: builtin checks must run synchronously")
 
         condition = None
         raw_if = entry.get("if")
@@ -100,6 +110,7 @@ def load_hooks(raw_hooks: list[dict] | None) -> list[Hook]:
             headers=raw_action.get("headers", {}),
             prompt=raw_action.get("prompt", ""),
             timeout=timeout,
+            builtin=raw_action.get("builtin", ""),
         )
 
         hooks.append(
@@ -111,6 +122,7 @@ def load_hooks(raw_hooks: list[dict] | None) -> list[Hook]:
                 reject=reject,
                 once=bool(entry.get("once", False)),
                 async_exec=async_exec,
+                scope=scope,
             )
         )
 

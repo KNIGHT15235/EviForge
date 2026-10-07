@@ -372,6 +372,7 @@ class Agent:
     def bind_child(self, child: Agent) -> None:
         """Inherit policy context without copying one-time authorization grants."""
         self.children.append(child)
+        child.parent_id = self.agent_id
         child.session_id = self.session_id
         child.turn_id = self.turn_id
         child.retry_policy = self.retry_policy
@@ -486,7 +487,7 @@ class Agent:
         if catalog_list is not None:
             self._agent_catalog_list = catalog_list
 
-    def _build_hook_context(self, event: str, **kwargs: str | dict) -> HookContext:
+    def _build_hook_context(self, event: str, **kwargs: Any) -> HookContext:
         return HookContext(
             event_name=event,
             tool_name=str(kwargs.get("tool_name", "")),
@@ -495,6 +496,11 @@ class Agent:
             file_path=str(kwargs.get("file_path", "")),
             message=str(kwargs.get("message", "")),
             error=str(kwargs.get("error", "")),
+            session_id=self.session_id, turn_id=self.turn_id, agent_id=self.agent_id,
+            parent_id=self.parent_id or "", run_status=self.last_run_status,
+            tool_succeeded=kwargs.get("tool_succeeded"),
+            tool_output=str(kwargs.get("tool_output", "")),
+            tool_status=str(kwargs.get("tool_status", "")),
         )
 
     def _infer_file_path(self, args: dict) -> str:
@@ -503,6 +509,13 @@ class Agent:
     def _drain_hook_events(self) -> list[HookEvent]:
         if not self.hook_engine:
             return []
+        notifications = self.hook_engine.drain_notifications()
+        if self._current_conversation is not None:
+            for note in notifications:
+                if note.blocking:
+                    self._current_conversation.add_system_reminder(
+                        "Validation failed; fix the reported problem before completion:\n" + note.output[:5000]
+                    )
         return [
             HookEvent(
                 hook_id=n.hook_id,
@@ -510,7 +523,7 @@ class Agent:
                 output=n.output,
                 success=n.success,
             )
-            for n in self.hook_engine.drain_notifications()
+            for n in notifications
         ]
 
     async def run(self, conversation: ConversationManager) -> AsyncIterator[AgentEvent]:
@@ -534,6 +547,7 @@ class Agent:
 
         if self.hook_engine:
             ctx = self._build_hook_context("session_start")
+            await self.hook_engine.begin_run(ctx)
             await self.hook_engine.run_hooks("session_start", ctx)
             for he in self._drain_hook_events():
                 yield he
@@ -543,6 +557,7 @@ class Agent:
         permission_denied = False
         max_tokens_escalated = False
         output_recoveries = 0
+        validation_recoveries = 0
 
         while True:
             iteration += 1
@@ -739,9 +754,21 @@ class Agent:
                     ctx = self._build_hook_context("turn_end")
                     await self.hook_engine.run_hooks("turn_end", ctx)
                     ctx = self._build_hook_context("session_end")
+                    ctx.run_status = "blocked" if permission_denied else "success"
                     await self.hook_engine.run_hooks("session_end", ctx)
                     for he in self._drain_hook_events():
                         yield he
+                    failure = self.hook_engine.completion_failure(ctx)
+                    if failure:
+                        validation_recoveries += 1
+                        if validation_recoveries <= 2 and not permission_denied:
+                            yield TurnComplete(turn=iteration)
+                            continue
+                        self.last_run_status = "blocked" if permission_denied else "failed"
+                        self.last_run_error = "Hook verification failed: " + failure
+                        yield ErrorEvent(message=self.last_run_error)
+                        yield LoopComplete(total_turns=iteration)
+                        break
                 if self.file_history is not None:
                     summary = response.text[:60] + "..." if len(response.text) > 60 else response.text
                     self.file_history.make_snapshot(len(conversation.history), summary)
@@ -782,6 +809,8 @@ class Agent:
                     and self._batch_can_run_parallel(batch.calls)
                 ):
                     batch_results = await self._execute_batch_parallel(batch.calls)
+                    for he in self._drain_hook_events():
+                        yield he
                     for br in batch_results:
                         if br.is_unknown:
                             consecutive_unknown += 1
@@ -824,6 +853,7 @@ class Agent:
                             for he in self._drain_hook_events():
                                 yield he
                             if rejection is not None:
+                                permission_denied = True
                                 result = ToolResult(
                                     output=f"Hook rejected: {rejection.reason}",
                                     is_error=True,
@@ -871,6 +901,9 @@ class Agent:
                                 tool_args=tc.arguments,
                                 work_dir=execution_cwd,
                                 file_path=file_path,
+                                tool_succeeded=not result.is_error,
+                                tool_output=result.output,
+                                tool_status=result.execution_status,
                             )
                             await self.hook_engine.run_hooks("post_tool_use", hook_ctx)
                             for he in self._drain_hook_events():
@@ -1030,6 +1063,9 @@ class Agent:
         execution_cwd = self.work_dir
         tool = self.registry.get(tc.tool_name)
         start = time.monotonic()
+        if self.hook_engine is not None:
+            result = await self._execute_tool_noninteractive(tc)
+            return _ToolExecResult(tc.tool_id, tc.tool_name, result, time.monotonic() - start, tool is None)
 
         if tool is None:
             return _ToolExecResult(
@@ -1088,7 +1124,7 @@ class Agent:
 
 
     def _batch_can_run_parallel(self, calls: list[ToolCallComplete]) -> bool:
-        if self.hook_engine is not None:
+        if self.hook_engine is not None and not getattr(self.hook_engine, "supports_parallel_tools", lambda: False)():
             return False
         if self.permission_checker is None:
             return True
@@ -1403,6 +1439,9 @@ class Agent:
                 tool_args=tc.arguments,
                 work_dir=execution_cwd,
                 file_path=file_path,
+                tool_succeeded=not result.is_error,
+                tool_output=result.output,
+                tool_status=result.execution_status,
             )
             await self.hook_engine.run_hooks("post_tool_use", hook_ctx)
 
