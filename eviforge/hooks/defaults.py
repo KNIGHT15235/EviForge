@@ -19,6 +19,15 @@ BUILTIN_EVENTS = {
     "protect_sensitive_files": "pre_tool_use",
     "check_changed_code": "turn_end",
     "final_evidence_report": "session_end",
+    "session_safety": "session_start",
+    "turn_safety": "turn_start",
+    "post_tool_safety": "post_tool_use",
+    "notify_turn_start": "turn_start",
+    "notify_turn_end": "turn_end",
+    "notify_session_end": "session_end",
+    "log_turn": "turn_end",
+    "commit_after_tool": "post_tool_use",
+    "commit_session": "session_end",
 }
 EVIDENCE_CONTRACT = (
     "Before declaring completion, verify the changed code and report actual commands/results. "
@@ -122,11 +131,16 @@ class _RunState:
     fingerprint: str = ""
     evidence: dict = field(default_factory=dict)
     report_path: str = ""
+    git_head: str = ""
+    git_clean: bool = False
+    owned: dict[str, str] = field(default_factory=dict)
+    before_write: dict[str, str | None] = field(default_factory=dict)
 
 
 class DefaultHookRunner:
-    def __init__(self, checks: list[dict] | None = None) -> None:
+    def __init__(self, checks: list[dict] | None = None, *, auto_commit: bool = True) -> None:
         self.checks = checks or []
+        self.auto_commit = auto_commit
         self.runs: dict[tuple[str, ...], _RunState] = {}
 
     @staticmethod
@@ -139,7 +153,9 @@ class DefaultHookRunner:
         key = self.key(ctx)
         if key not in self.runs:
             files, skipped = await asyncio.to_thread(_snapshot, Path(key[-1]))
-            self.runs[key] = _RunState(files, skipped)
+            from eviforge.hooks.lifecycle_actions import git_baseline
+            head, clean = await asyncio.to_thread(git_baseline, Path(key[-1]))
+            self.runs[key] = _RunState(files, skipped, git_head=head, git_clean=clean)
             while len(self.runs) > 64:
                 self.runs.pop(next(iter(self.runs)))
 
@@ -153,12 +169,19 @@ class DefaultHookRunner:
             if protected_path(target) or protected_path(target.resolve()):
                 return ActionResult("Protected file: use an explicit human edit or the permission workflow instead.",
                                     success=False, blocking=True)
+            if not ctx.parent_id:
+                from eviforge.hooks.lifecycle_actions import remember_before_write
+                await self.begin_run(ctx)
+                remember_before_write(self, ctx)
             return ActionResult()
         if action.builtin not in BUILTIN_EVENTS:
             raise ValueError("Unknown builtin hook")
         if ctx.parent_id:
             return ActionResult()
         await self.begin_run(ctx)
+        if action.builtin not in {"check_changed_code", "final_evidence_report"}:
+            from eviforge.hooks.lifecycle_actions import execute_lifecycle_action
+            return await execute_lifecycle_action(self, action.builtin, ctx)
         evidence = await self._check(ctx)
         if action.builtin == "final_evidence_report":
             evidence = dict(evidence, run_status="failed" if evidence["status"] == "failed" else ctx.run_status)
@@ -244,11 +267,22 @@ class DefaultHookRunner:
 
 
 def default_hooks() -> list[Hook]:
+    from eviforge.hooks.conditions import parse_condition
+    writes = parse_condition('tool == "WriteFile" || tool == "EditFile"')
     return [
+        Hook("session_safety", "session_start", Action("builtin", builtin="session_safety"), scope="main"),
+        Hook("turn_safety", "turn_start", Action("builtin", builtin="turn_safety"), scope="main"),
+        Hook("notify_turn_start", "turn_start", Action("builtin", builtin="notify_turn_start"), scope="main"),
         Hook("protect_sensitive_files", "pre_tool_use", Action("builtin", builtin="protect_sensitive_files")),
+        Hook("post_tool_safety", "post_tool_use", Action("builtin", builtin="post_tool_safety"), condition=writes, scope="main"),
+        Hook("commit_after_tool", "post_tool_use", Action("builtin", builtin="commit_after_tool"), condition=writes, scope="main"),
         Hook("evidence_contract", "pre_send", Action("prompt", message=EVIDENCE_CONTRACT), scope="main"),
         Hook("check_changed_code", "turn_end", Action("builtin", builtin="check_changed_code"), scope="main"),
+        Hook("log_turn", "turn_end", Action("builtin", builtin="log_turn"), scope="main"),
+        Hook("notify_turn_end", "turn_end", Action("builtin", builtin="notify_turn_end"), scope="main"),
         Hook("final_evidence_report", "session_end", Action("builtin", builtin="final_evidence_report"), scope="main"),
+        Hook("commit_session", "session_end", Action("builtin", builtin="commit_session"), scope="main"),
+        Hook("notify_session_end", "session_end", Action("builtin", builtin="notify_session_end"), scope="main"),
     ]
 
 
@@ -261,4 +295,4 @@ def create_hook_engine(config):
     hooks.extend(load_hooks(config.raw_hooks))
     if not hooks:
         return None
-    return HookEngine(hooks, checks=policy.get("checks", []))
+    return HookEngine(hooks, checks=policy.get("checks", []), auto_commit=policy.get("auto_commit", True))

@@ -38,6 +38,7 @@ def check_installed() -> None:
     package = files("eviforge")
     resources = [
         "styles.tcss",
+        "hooks/lifecycle_actions.py",
         "schemas/run-result-v1.schema.json",
         "schemas/run-event-v1.schema.json",
         "schemas/dag-graph-v1.schema.json",
@@ -102,7 +103,7 @@ def check_installed() -> None:
 
     async def check_hooks() -> None:
         engine = create_hook_engine(AppConfig(providers=[]))
-        require(engine is not None and len(engine.hooks) == 4, "Packaged default Hook preset did not load")
+        require(engine is not None and len(engine.hooks) == 13, "Packaged default Hook preset did not load")
         context = HookContext(work_dir=str(Path.cwd()), session_id="wheel", turn_id="check", agent_id="main")
         await engine.begin_run(context)
         source = Path("hook-wheel-check.py")

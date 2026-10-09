@@ -429,11 +429,16 @@ class HookNotice(Static, can_focus=True):
     def __init__(self, hook_id: str, success: bool, output: str) -> None:
         super().__init__(classes="message hook-notice")
         names = {"evidence_contract": "验收规则", "check_changed_code": "代码检查",
-                 "protect_sensitive_files": "敏感文件保护", "final_evidence_report": "验收报告"}
+                 "protect_sensitive_files": "敏感文件保护", "final_evidence_report": "验收报告",
+                 "session_safety": "会话安全检查", "turn_safety": "轮次安全检查",
+                 "post_tool_safety": "写入后检查", "log_turn": "轮次日志",
+                 "commit_after_tool": "工具后自动提交", "commit_session": "结束自动提交",
+                 "notify_turn_start": "轮次开始通知", "notify_turn_end": "轮次结束通知",
+                 "notify_session_end": "会话结束通知"}
         self._title = names.get(hook_id, hook_id)
         self._success = success
         self._output = output
-        self._expanded = not success
+        self._expanded = not success or hook_id.startswith("notify_")
         self._refresh_content()
 
     def _refresh_content(self) -> None:
@@ -1387,6 +1392,8 @@ class EviForgeApp(App):
             self.agent.last_run_error = str(e)
             self._show_error(str(e))
         finally:
+            for event in self.agent._drain_hook_events():
+                await chat.mount(HookNotice(event.hook_id, event.success, event.output))
             self._flush_session()
             self._finish_streaming()
             input_widget.focus()

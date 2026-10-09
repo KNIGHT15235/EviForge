@@ -17,17 +17,18 @@ class HookNotification:
     output: str
     success: bool
     blocking: bool = False
+    agent_id: str = ""
 
 
 class HookEngine:
-    def __init__(self, hooks: list[Hook] | None = None, *, checks: list[dict] | None = None) -> None:
+    def __init__(self, hooks: list[Hook] | None = None, *, checks: list[dict] | None = None, auto_commit: bool = True) -> None:
         self.hooks: list[Hook] = hooks or []
         self._prompt_messages: list[str] = []
         self._notifications: list[HookNotification] = []
         self._background_tasks: set[asyncio.Task[None]] = set()
         self.agent_executor = None
         from eviforge.hooks.defaults import DefaultHookRunner
-        self.default_runner = DefaultHookRunner(checks)
+        self.default_runner = DefaultHookRunner(checks, auto_commit=auto_commit)
         self._completion_failures: dict[tuple[str, ...], str] = {}
 
     async def begin_run(self, ctx: HookContext) -> None:
@@ -48,13 +49,25 @@ class HookEngine:
                 "report_path": state.report_path, "unverified": state.evidence["unverified"]}
 
     def supports_parallel_tools(self) -> bool:
-        # Arbitrary user tool hooks keep their existing ordered semantics.
-        return all(h.action.type == "builtin" and h.action.builtin == "protect_sensitive_files"
-                   and not h.once and not h.async_exec
-                   for h in self.hooks if h.event in {"pre_tool_use", "post_tool_use"})
+        # Only the packaged guard and write-only post hooks are safe with concurrent reads.
+        for hook in self.hooks:
+            if hook.event not in {"pre_tool_use", "post_tool_use"}:
+                continue
+            if hook.action.type != "builtin" or hook.once or hook.async_exec:
+                return False
+            if hook.event == "pre_tool_use" and hook.action.builtin == "protect_sensitive_files":
+                continue
+            condition = hook.condition
+            if (hook.event == "post_tool_use" and hook.action.builtin in {"post_tool_safety", "commit_after_tool"}
+                    and condition is not None and condition.logic == "or"
+                    and {(c.field, c.operator, c.value) for c in condition.conditions}
+                    == {("tool", "==", "WriteFile"), ("tool", "==", "EditFile")}):
+                continue
+            return False
+        return True
 
     def _record_validation(self, hook: Hook, ctx: HookContext, result: ActionResult) -> None:
-        if hook.action.type == "builtin" and hook.action.builtin in {"check_changed_code", "final_evidence_report"}:
+        if hook.action.type == "builtin" and hook.action.builtin in {"check_changed_code", "final_evidence_report", "post_tool_safety"}:
             key = self.default_runner.key(ctx)
             if result.blocking:
                 self._completion_failures[key] = result.output
@@ -85,18 +98,23 @@ class HookEngine:
 
 
     async def run_hooks(self, event: str, ctx: HookContext) -> None:
+        from dataclasses import replace
+        ctx = replace(ctx, event_name=event)
         matched = self.find_matching_hooks(event, ctx)
         for hook in matched:
+            action_context = ctx
+            if event in {"turn_end", "session_end"} and self.completion_failure(ctx):
+                action_context = replace(ctx, run_status="failed" if ctx.run_status in {"running", "success"} else ctx.run_status)
             hook.mark_executed()
             if hook.async_exec:
                 task = asyncio.create_task(
-                    self._run_single(hook, ctx),
+                    self._run_single(hook, action_context),
                     name=f"hook-{hook.id}",
                 )
                 self._background_tasks.add(task)
                 task.add_done_callback(self._background_task_done)
             else:
-                await self._run_single(hook, ctx)
+                await self._run_single(hook, action_context)
 
     def _background_task_done(self, task: asyncio.Task[None]) -> None:
         self._background_tasks.discard(task)
@@ -156,6 +174,7 @@ class HookEngine:
                 HookNotification(
                     hook_id=hook.id,
                     event=hook.event,
+                    agent_id=ctx.agent_id,
                     output=result.output,
                     success=result.success,
                     blocking=result.blocking,
@@ -167,12 +186,16 @@ class HookEngine:
                 )
         except Exception as e:
             log.warning("Hook '%s' execution error: %s", hook.id, e)
-            blocking = hook.action.type == "builtin"
+            blocking = hook.action.type == "builtin" and hook.action.builtin in {
+                "protect_sensitive_files", "session_safety", "turn_safety", "post_tool_safety",
+                "check_changed_code", "final_evidence_report",
+            }
             self._record_validation(hook, ctx, ActionResult(str(e), False, blocking))
             self._notifications.append(
                 HookNotification(
                     hook_id=hook.id,
                     event=hook.event,
+                    agent_id=ctx.agent_id,
                     output=str(e),
                     success=False,
                     blocking=blocking,
@@ -193,6 +216,7 @@ class HookEngine:
                     HookNotification(
                         hook_id=hook.id,
                         event="pre_tool_use",
+                        agent_id=ctx.agent_id,
                         output=result.output,
                         success=result.success,
                     )
@@ -215,7 +239,11 @@ class HookEngine:
         return messages
 
 
-    def drain_notifications(self) -> list[HookNotification]:
-        notifications = list(self._notifications)
-        self._notifications.clear()
+    def drain_notifications(self, *, agent_id: str | None = None) -> list[HookNotification]:
+        if agent_id is None:
+            notifications = list(self._notifications)
+            self._notifications.clear()
+            return notifications
+        notifications = [note for note in self._notifications if note.agent_id == agent_id]
+        self._notifications = [note for note in self._notifications if note.agent_id != agent_id]
         return notifications

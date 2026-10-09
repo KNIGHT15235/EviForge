@@ -498,6 +498,7 @@ class Agent:
             error=str(kwargs.get("error", "")),
             session_id=self.session_id, turn_id=self.turn_id, agent_id=self.agent_id,
             parent_id=self.parent_id or "", run_status=self.last_run_status,
+            iteration=getattr(self, "_hook_iteration", 0),
             tool_succeeded=kwargs.get("tool_succeeded"),
             tool_output=str(kwargs.get("tool_output", "")),
             tool_status=str(kwargs.get("tool_status", "")),
@@ -509,7 +510,7 @@ class Agent:
     def _drain_hook_events(self) -> list[HookEvent]:
         if not self.hook_engine:
             return []
-        notifications = self.hook_engine.drain_notifications()
+        notifications = self.hook_engine.drain_notifications(agent_id=self.agent_id)
         if self._current_conversation is not None:
             for note in notifications:
                 if note.blocking:
@@ -526,7 +527,61 @@ class Agent:
             for n in notifications
         ]
 
+    async def _finish_hook_turn(self) -> None:
+        if self.hook_engine and getattr(self, "_hook_turn_open", False):
+            await self.hook_engine.run_hooks("turn_end", self._build_hook_context("turn_end"))
+            self._hook_turn_open = False
+
     async def run(self, conversation: ConversationManager) -> AsyncIterator[AgentEvent]:
+        """Balance lifecycle actions on success, provider failure and cancellation.
+
+        A session retains the original per-run meaning; a turn is a ReAct iteration.
+        LoopComplete is delivered after final evidence and lifecycle actions finish.
+        """
+        self.last_run_status = "running"
+        self.last_run_error = ""
+        self.turn_id = self.turn_id or uuid.uuid4().hex
+        self._current_conversation = conversation
+        self._hook_iteration = 0
+        self._hook_turn_open = False
+        completion = None
+        try:
+            if self.hook_engine:
+                ctx = self._build_hook_context("session_start")
+                await self.hook_engine.begin_run(ctx)
+                await self.hook_engine.run_hooks("session_start", ctx)
+                for event in self._drain_hook_events():
+                    if event.hook_id == "session_safety" and not event.success:
+                        raise RuntimeError(event.output)
+                    yield event
+            async for event in self._run_loop(conversation):
+                if isinstance(event, LoopComplete):
+                    completion = event
+                else:
+                    yield event
+        except (asyncio.CancelledError, GeneratorExit):
+            self.last_run_status = "cancelled"
+            raise
+        except Exception as exc:
+            if self.last_run_status != "ambiguous":
+                self.last_run_status = "failed"
+            self.last_run_error = str(exc)
+            raise
+        finally:
+            await self._finish_hook_turn()
+            if self.hook_engine:
+                ctx = self._build_hook_context("session_end")
+                await self.hook_engine.run_hooks("session_end", ctx)
+                failure = self.hook_engine.completion_failure(ctx)
+                if failure and self.last_run_status == "success":
+                    self.last_run_status = "failed"
+                    self.last_run_error = "Hook verification failed: " + failure
+        for event in self._drain_hook_events():
+            yield event
+        if completion is not None:
+            yield completion
+
+    async def _run_loop(self, conversation: ConversationManager) -> AsyncIterator[AgentEvent]:
         self.last_run_status = "running"
         self.last_run_error = ""
         runtime = getattr(self, "runtime", None)
@@ -545,13 +600,6 @@ class Agent:
         memory_content = self._legacy_memory_content()
         conversation.inject_long_term_memory(self.instructions_content, memory_content)
 
-        if self.hook_engine:
-            ctx = self._build_hook_context("session_start")
-            await self.hook_engine.begin_run(ctx)
-            await self.hook_engine.run_hooks("session_start", ctx)
-            for he in self._drain_hook_events():
-                yield he
-
         iteration = 0
         consecutive_unknown = 0
         permission_denied = False
@@ -560,7 +608,11 @@ class Agent:
         validation_recoveries = 0
 
         while True:
+            await self._finish_hook_turn()
+            for event in self._drain_hook_events():
+                yield event
             iteration += 1
+            self._hook_iteration = iteration
 
             if iteration > self.max_iterations:
                 self.last_run_status = "failed"
@@ -571,9 +623,12 @@ class Agent:
                 break
 
             if self.hook_engine:
+                self._hook_turn_open = True
                 ctx = self._build_hook_context("turn_start")
                 await self.hook_engine.run_hooks("turn_start", ctx)
                 for he in self._drain_hook_events():
+                    if he.hook_id == "turn_safety" and not he.success:
+                        raise RuntimeError(he.output)
                     yield he
 
             self._consume_mailbox(conversation)
@@ -751,17 +806,16 @@ class Agent:
                 ):
                     self.spawn_background(self._extract_memories(conversation), name="memory-extraction")
                 if self.hook_engine:
+                    self.last_run_status = "blocked" if permission_denied else "success"
+                    await self._finish_hook_turn()
                     ctx = self._build_hook_context("turn_end")
-                    await self.hook_engine.run_hooks("turn_end", ctx)
-                    ctx = self._build_hook_context("session_end")
-                    ctx.run_status = "blocked" if permission_denied else "success"
-                    await self.hook_engine.run_hooks("session_end", ctx)
                     for he in self._drain_hook_events():
                         yield he
                     failure = self.hook_engine.completion_failure(ctx)
                     if failure:
                         validation_recoveries += 1
                         if validation_recoveries <= 2 and not permission_denied:
+                            self.last_run_status = "running"
                             yield TurnComplete(turn=iteration)
                             continue
                         self.last_run_status = "blocked" if permission_denied else "failed"
@@ -954,11 +1008,9 @@ class Agent:
                 yield LoopComplete(total_turns=iteration)
                 break
 
-            if self.hook_engine:
-                ctx = self._build_hook_context("turn_end")
-                await self.hook_engine.run_hooks("turn_end", ctx)
-                for he in self._drain_hook_events():
-                    yield he
+            await self._finish_hook_turn()
+            for he in self._drain_hook_events():
+                yield he
             yield TurnComplete(turn=iteration)
 
 
@@ -1363,7 +1415,15 @@ class Agent:
             self.last_run_status = "cancelled"
             raise
         finally:
-            self._run_event_callback = None
+            # Exception/cancellation exits cannot yield from the async generator's finally block.
+            # Deliver its remaining lifecycle notifications through the same headless callback.
+            try:
+                for event in self._drain_hook_events():
+                    if event_callback:
+                        event_callback({"type": "hook", "hook_id": event.hook_id, "event": event.event,
+                                        "output": event.output, "success": event.success})
+            finally:
+                self._run_event_callback = None
 
     async def _execute_tool_noninteractive(
         self, tc: ToolCallComplete

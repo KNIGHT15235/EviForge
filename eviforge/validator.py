@@ -264,11 +264,13 @@ def validate_teammate_mode(mode: object) -> str:
 def validate_hook_policy(raw: object) -> dict:
     if raw is None:
         return {}
-    if not isinstance(raw, dict) or set(raw) - {"enabled", "checks"}:
-        raise ConfigError("hook_policy must be a mapping with enabled/checks fields")
+    if not isinstance(raw, dict) or set(raw) - {"enabled", "checks", "auto_commit"}:
+        raise ConfigError("hook_policy must be a mapping with enabled/checks/auto_commit fields")
     result = dict(raw)
     if "enabled" in raw:
         result["enabled"] = validate_bool_field(raw["enabled"], "hook_policy.enabled")
+    if "auto_commit" in raw:
+        result["auto_commit"] = validate_bool_field(raw["auto_commit"], "hook_policy.auto_commit")
     if "checks" in raw:
         if not isinstance(raw["checks"], list):
             raise ConfigError("hook_policy.checks must be a list")

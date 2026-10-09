@@ -232,7 +232,7 @@ async def test_default_hooks_preserve_read_parallelism_and_custom_hooks_remain_s
 def test_config_disable_layer_override_and_builtin_validation(tmp_path):
     base = AppConfig(providers=[], hook_policy={"enabled": False})
     assert create_hook_engine(_merge_config(base, AppConfig(providers=[]))) is None
-    assert len(engine().hooks) == 4
+    assert len(engine().hooks) == 13
     with pytest.raises(ConfigError):
         validate_hook_policy({"checks": [{"name": "bad", "argv": "pytest"}]})
     with pytest.raises(HookConfigError, match="builtin"):

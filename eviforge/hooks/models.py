@@ -67,13 +67,14 @@ class HookContext:
     tool_output: str = ""
     tool_status: str = ""
     run_status: str = ""
+    iteration: int = 0
 
     def get_field(self, name: str) -> str:
         if name == "tool":
             return self.tool_name
         if name == "event":
             return self.event_name
-        if name in {"session_id", "turn_id", "agent_id", "parent_id", "run_status"}:
+        if name in {"session_id", "turn_id", "agent_id", "parent_id", "run_status", "work_dir", "iteration"}:
             return str(getattr(self, name))
         if name == "tool_succeeded":
             return "" if self.tool_succeeded is None else str(self.tool_succeeded).lower()
@@ -90,7 +91,7 @@ class HookContext:
         result = result.replace("$FILE_PATH", self.file_path)
         result = result.replace("$MESSAGE", self.message)
         result = result.replace("$ERROR", self.error)
-        for name in ("session_id", "turn_id", "agent_id", "parent_id", "tool_output", "tool_status"):
+        for name in ("session_id", "turn_id", "agent_id", "parent_id", "tool_output", "tool_status", "work_dir", "run_status", "iteration"):
             result = result.replace("$" + name.upper(), str(getattr(self, name)))
         for key, value in self.tool_args.items():
             result = result.replace(f"$TOOL_ARGS.{key}", str(value))

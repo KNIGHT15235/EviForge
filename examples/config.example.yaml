@@ -25,9 +25,11 @@ enable_verification_agent: false
 teammate_mode: in-process
 enable_coordinator_mode: false
 
-# 四类内置 Hook 默认开启；hooks 列表用于追加自定义规则。
+# 六事件默认动作及证据治理共 13 条规则；hooks 用于追加自定义规则。
 hook_policy:
   enabled: true
+  # 满足干净仓库、写入归属和校验条件时创建本地提交；不会自动 push。
+  auto_commit: true
   # 显式配置目标项目的只读检查命令；不自动猜测或执行项目脚本。
   # checks:
   #   - name: targeted_tests
