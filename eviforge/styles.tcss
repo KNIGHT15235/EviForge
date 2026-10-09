@@ -1,10 +1,23 @@
-Screen { }
+Screen {
+    background: #17191C;
+    color: #E8E5DF;
+}
 
 #title-bar {
     dock: top;
     width: 100%;
+    height: 6;
+    padding: 1 2;
+    border-bottom: solid #363A3F;
+}
+
+#brand-label { width: 2fr; height: 3; }
+#workspace-label {
+    width: 1fr;
     height: 3;
-    padding: 0 1;
+    color: #92999F;
+    text-align: right;
+    content-align: right middle;
 }
 
 /* --- Provider Selection --- */
@@ -34,44 +47,31 @@ Screen { }
 
 #chat-area {
     height: 1fr;
-    min-height: 18;
-    padding: 0 1;
+    min-height: 1;
+    padding: 1 2 0 2;
+    scrollbar-size: 1 1;
+    scrollbar-color: #555B62;
+    scrollbar-background: #17191C;
 }
 
 .message {
-    padding: 0 2;
+    padding: 0 0 0 3;
     margin: 0;
     width: 100%;
     height: auto;
 }
 
-.user-row {
-    height: auto;
-    width: 100%;
-}
-
-.user-message {
-    color: $text;
-}
-
-.ai-row {
-    height: auto;
-    width: 100%;
-}
-
-.ai-message {
-    color: $text;
-}
-
-.error-message {
-    color: $error;
-    padding: 0 2;
-}
-
-.system-message {
-    color: $text-muted;
-    padding: 0 2;
-}
+.user-row, .ai-row { height: auto; width: 100%; margin-bottom: 1; }
+.role-label { height: 1; margin-bottom: 1; }
+.ai-turn { height: auto; width: 100%; }
+.hook-notice { color: #92999F; }
+.hook-notice:focus { background: #1D2024; }
+.ai-message MarkdownBullet { color: #E5AB68; }
+.user-message, .ai-message { color: #E8E5DF; background: #17191C; }
+.ai-message MarkdownParagraph { margin: 0 0 1 0; }
+.ai-message MarkdownFence { margin: 0 0 1 0; }
+.error-message { color: $error; }
+.system-message { color: #92999F; }
 
 /* --- Tool Call Block --- */
 
@@ -106,53 +106,60 @@ Screen { }
 
 /* --- Input Area --- */
 
-#spinner-live {
-    height: 1;
-    padding: 0 2;
-}
+#spinner-live { height: 1; padding: 0 0 0 3; color: #E5AB68; }
 
 #input-area {
     dock: bottom;
     height: auto;
-    max-height: 20;
+    max-height: 18;
     padding: 0 1;
-    border-top: solid #303030;
+    background: #17191C;
 }
 
+#input-box {
+    height: auto;
+    min-height: 3;
+    max-height: 12;
+    padding: 0 1;
+    border: round #555B62;
+    background: #1D2024;
+}
+#input-box:focus-within { border: round #E5AB68; }
+#input-prompt { width: 3; height: 1; color: #8DBFA7; text-style: bold; }
 #chat-input {
+    width: 1fr;
     height: auto;
     min-height: 1;
     max-height: 10;
     border: none;
+    padding: 0;
+    background: #1D2024;
 }
+#chat-input:focus { border: none; }
+#chat-input .text-area--cursor { background: #E5AB68; color: #17191C; }
+#chat-input .text-area--cursor-line { background: #1D2024; }
+#input-hints { height: 1; color: #92999F; text-align: right; padding-right: 1; }
 
 #status-bar {
-    height: auto;
-    min-height: 1;
+    height: 2;
     width: 100%;
     padding: 0 1;
-    border-top: solid #303030;
+    border-top: solid #363A3F;
+    color: #92999F;
 }
-
-#mode-label {
-    width: auto;
-    height: 1;
-    color: $text-muted;
-    padding: 0 1;
-}
-
-#teammates-label {
+#model-label { width: auto; height: 1; padding-right: 2; }
+#mode-label, #branch-label, #teammates-label {
     width: auto;
     height: 1;
     padding: 0 1;
 }
-
-#model-label {
-    width: 1fr;
-    height: 1;
-    text-align: right;
-    color: $text-muted;
-}
+#token-label { width: 1fr; height: 1; text-align: right; }
+.compact-layout #branch-label { display: none; }
+.narrow-layout #workspace-label { display: none; }
+.narrow-layout #model-label { display: none; }
+.narrow-layout #input-hints { text-align: left; padding: 0; }
+.narrow-layout #title-bar { padding-left: 1; padding-right: 1; }
+.narrow-layout #chat-area { padding-left: 1; padding-right: 1; }
 
 /* --- Teammate Tree --- */
 

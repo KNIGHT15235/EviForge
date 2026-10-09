@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-import random
+import subprocess
 import uuid
 import time as _time
 from pathlib import Path
@@ -156,7 +156,7 @@ class ChatInput(TextArea):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.cursor_blink = False
+        self.cursor_blink = True
         self._history: list[str] = []
         self._history_index: int = -1
         self._history_draft: str = ""
@@ -422,41 +422,35 @@ _MODE_COLORS = {
 SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
 
-def _to_past_tense(verb: str) -> str:
-    """把现在进行时动词转换为过去式。"""
-    if verb.endswith("ing"):
-        stem = verb[:-3]
-        if stem.endswith("e"):
-            return stem + "d"
-        if stem and stem[-1] in "atutitet":
-            return stem + "ed"
-        return stem + "ed"
-    return verb + "ed"
+class HookNotice(Static, can_focus=True):
+    """Keep audit output accessible without filling the conversation with logs."""
+    BINDINGS = [Binding("enter", "toggle", "Details")]
 
+    def __init__(self, hook_id: str, success: bool, output: str) -> None:
+        super().__init__(classes="message hook-notice")
+        names = {"evidence_contract": "验收规则", "check_changed_code": "代码检查",
+                 "protect_sensitive_files": "敏感文件保护", "final_evidence_report": "验收报告"}
+        self._title = names.get(hook_id, hook_id)
+        self._success = success
+        self._output = output
+        self._expanded = not success
+        self._refresh_content()
 
-THINKING_VERBS = [
-    "Accomplishing", "Architecting", "Baking", "Beboppin'", "Befuddling",
-    "Bloviating", "Boogieing", "Boondoggling", "Bootstrapping", "Brewing",
-    "Calculating", "Canoodling", "Caramelizing", "Cascading", "Cerebrating",
-    "Choreographing", "Churning", "Coalescing", "Cogitating", "Combobulating",
-    "Composing", "Computing", "Concocting", "Considering", "Contemplating",
-    "Cooking", "Crafting", "Creating", "Crunching", "Crystallizing",
-    "Cultivating", "Deciphering", "Deliberating", "Dilly-dallying",
-    "Discombobulating", "Doodling", "Elucidating", "Enchanting", "Envisioning",
-    "Fermenting", "Finagling", "Flambéing", "Flibbertigibbeting", "Flummoxing",
-    "Forging", "Frolicking", "Gallivanting", "Garnishing", "Generating",
-    "Germinating", "Grooving", "Harmonizing", "Hatching", "Honking",
-    "Hullaballooing", "Ideating", "Imagining", "Improvising", "Incubating",
-    "Inferring", "Infusing", "Kneading", "Lollygagging", "Manifesting",
-    "Marinating", "Meandering", "Metamorphosing", "Mewing", "Moonwalking",
-    "Moseying", "Mulling", "Musing", "Noodling", "Orbiting",
-    "Orchestrating", "Percolating", "Philosophising", "Pondering",
-    "Pontificating", "Pouncing", "Purring", "Puzzling", "Razzle-dazzling",
-    "Ruminating", "Scampering", "Simmering", "Sketching", "Spelunking",
-    "Spinning", "Sprouting", "Synthesizing", "Thinking", "Tinkering",
-    "Transfiguring", "Transmuting", "Undulating", "Unfurling", "Unravelling",
-    "Vibing", "Wandering", "Whisking", "Working", "Wrangling", "Zigzagging",
-]  # 共 105 个动词，与 Go 版 internal/tui/verbs.go 完全一致
+    def _refresh_content(self) -> None:
+        text = RichText("✓ " if self._success else "✗ ",
+                        style="#8DBFA7" if self._success else "#E78284")
+        text.append(self._title, style="#92999F")
+        text.append(" · Enter 收起" if self._expanded else " · Enter 查看详情", style="#92999F")
+        if self._expanded and self._output:
+            text.append("\n" + self._output, style="#92999F")
+        self.update(text)
+
+    def action_toggle(self) -> None:
+        self._expanded = not self._expanded
+        self._refresh_content()
+
+    def on_click(self) -> None:
+        self.action_toggle()
 
 
 class ToolGroupSummary(Static, can_focus=True):
@@ -543,10 +537,13 @@ class SubAgentBlock(Static, can_focus=True):
 
 _EVIFORGE_THEME = Theme(
     name="eviforge",
-    primary="#875FFF",
-    background="#1a1a1a",
-    surface="#1a1a1a",
-    panel="#1a1a1a",
+    primary="#E5AB68",
+    secondary="#8DBFA7",
+    accent="#E5AB68",
+    foreground="#E8E5DF",
+    background="#17191C",
+    surface="#1D2024",
+    panel="#1D2024",
     dark=True,
 )
 
@@ -598,7 +595,6 @@ class EviForgeApp(App):
         self._selected_provider: ProviderConfig | None = None
         self._streaming = False
         self._thinking_start: float = 0.0
-        self._thinking_verb: str = ""
         self._spinner_idx: int = 0
         self._spinner_timer = None
         self._spinner_label: Static | None = None
@@ -635,21 +631,50 @@ class EviForgeApp(App):
         self._hooks_closed = False
         self._hook_shutdown_lock = asyncio.Lock()
         self._force_exit_requested = False
+        self._connection_state = "未连接"
+        self._usage_tokens = 0
 
     @staticmethod
     def _make_banner(model: str = "", work_dir: str = "") -> RichText:
-        t = RichText()
-        t.append(" /\\_/\\    ", style="bold color(99)")
-        t.append("EviForge v0.1.0\n", style="color(242)")
-        t.append("( o.o )   ", style="bold color(99)")
-        t.append(f"{model}\n" if model else "\n", style="color(242)")
-        t.append(" > ^ <    ", style="bold color(99)")
-        t.append(work_dir, style="color(242)")
-        return t
+        text = RichText()
+        text.append("◈  ", style="bold #E5AB68")
+        text.append("EviForge\n", style="bold #E8E5DF")
+        text.append("   可验证 · 可恢复 · 会进化", style="#92999F")
+        if model:
+            text.append(f"\n   {model}", style="#92999F")
+        return text
+
+    @staticmethod
+    def _role_label(role: str) -> Static:
+        text = RichText()
+        text.append("❯  " if role == "user" else "◈  ",
+                    style="bold #8DBFA7" if role == "user" else "bold #E5AB68")
+        text.append("你" if role == "user" else "EviForge", style="bold #E8E5DF")
+        return Static(text, classes="role-label")
+
+    def _update_workspace(self, work_dir: str) -> None:
+        self.query_one("#workspace-label", Static).update(RichText(work_dir))
+        try:
+            result = subprocess.run(
+                ["git", "-c", f"safe.directory={Path(work_dir).as_posix()}",
+                 "symbolic-ref", "--short", "HEAD"],
+                cwd=work_dir, capture_output=True, text=True, timeout=1,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            branch = result.stdout.strip() if result.returncode == 0 else "—"
+        except (OSError, subprocess.TimeoutExpired):
+            branch = "—"
+        self.query_one("#branch-label", Static).update(RichText(f"⑂ {branch}"))
+
+    def on_resize(self, event) -> None:
+        self.set_class(event.size.width < 95, "compact-layout")
+        self.set_class(event.size.width < 65, "narrow-layout")
 
     def _sync_worktree_context(self, work_dir: str) -> None:
         """Keep the agent and cwd-scoped tool caches aligned with a worktree switch."""
         self.registry.clear_file_caches()
+        if self.is_running:
+            self._update_workspace(work_dir)
         if self.agent is not None:
             self.agent.work_dir = work_dir
             checker = getattr(self.agent, "permission_checker", None)
@@ -661,7 +686,9 @@ class EviForgeApp(App):
             )
 
     def compose(self) -> ComposeResult:
-        yield Static(self._make_banner(), id="title-bar")
+        with Horizontal(id="title-bar"):
+            yield Static(self._make_banner(), id="brand-label")
+            yield Static("", id="workspace-label", markup=False)
 
         if len(self.providers) > 1:
             with Vertical(id="provider-select"):
@@ -675,12 +702,17 @@ class EviForgeApp(App):
                 )
         yield VerticalScroll(id="chat-area")
         with Vertical(id="input-area"):
-            yield ChatInput(id="chat-input")
-            with Horizontal(id="status-bar"):
-                yield Static("  default", id="mode-label")
-                yield Static("", id="teammates-label")
-                yield Static("", id="model-label")
             yield CompletionPopup()
+            with Horizontal(id="input-box"):
+                yield Static("❯", id="input-prompt")
+                yield ChatInput(id="chat-input")
+            yield Static("Enter 发送  ·  Shift+Enter 换行  ·  Esc 停止", id="input-hints")
+            with Horizontal(id="status-bar"):
+                yield Static("● 未连接", id="model-label")
+                yield Static("default · 需审批", id="mode-label")
+                yield Static("", id="branch-label", markup=False)
+                yield Static("", id="teammates-label")
+                yield Static("上下文 ~0%  ·  0 tokens", id="token-label")
 
     def on_mount(self) -> None:
         self.register_theme(_EVIFORGE_THEME)
@@ -741,11 +773,12 @@ class EviForgeApp(App):
         if self._mcp_server_configs:
             self._mcp_init_task = self._track_background(self._init_mcp())
 
-        self.query_one("#model-label", Static).update(provider.model)
+        self._connection_state = "模型就绪"
         work_dir = os.getcwd()
-        self.query_one("#title-bar", Static).update(
+        self.query_one("#brand-label", Static).update(
             self._make_banner(provider.model, work_dir)
         )
+        self._update_workspace(work_dir)
         self._update_mode_label()
 
         select = self.query("#provider-select")
@@ -754,7 +787,7 @@ class EviForgeApp(App):
         self.query_one("#chat-area").display = True
         self.query_one("#input-area").display = True
         chat_input = self.query_one("#chat-input", ChatInput)
-        chat_input.placeholder = "Send a message..."
+        chat_input.placeholder = "继续提问，或输入 / 查看命令"
         chat_input.load_history(work_dir)
         chat_input.focus()
 
@@ -1144,12 +1177,8 @@ class EviForgeApp(App):
         if text:
             user_row = Vertical(classes="user-row")
             await chat.mount(user_row)
-            from rich.text import Text as RichText
-            user_rich = RichText()
-            user_rich.append("❯ ", style="bold color(80)")
-            user_rich.append(text, style="bold color(255)")
-            user_bubble = Static(user_rich, classes="message user-message")
-            await user_row.mount(user_bubble)
+            user_bubble = Static(RichText(text), classes="message user-message")
+            await user_row.mount(self._role_label("user"), user_bubble)
             self.call_after_refresh(chat.scroll_end, animate=False)
 
             self.conversation.add_user_message(text)
@@ -1169,20 +1198,31 @@ class EviForgeApp(App):
                 pass
 
         # 准备 AI 回复区域
-        ai_row = Vertical(classes="ai-row")
-        await chat.mount(ai_row)
+        reply = Vertical(classes="ai-row")
+        await chat.mount(reply)
+        ai_row = Vertical(classes="ai-turn")
+        await reply.mount(self._role_label("assistant"), ai_row)
         streaming_label = Static("", classes="message ai-message")
         await ai_row.mount(streaming_label)
 
         accumulated_text = ""
+
+        async def flush_text() -> None:
+            nonlocal streaming_label, accumulated_text
+            if streaming_label is not None:
+                await streaming_label.remove()
+            if accumulated_text:
+                await ai_row.mount(Markdown(accumulated_text, classes="message ai-message"))
+            streaming_label = None
+            accumulated_text = ""
+
         tool_blocks: dict[str, ToolCallBlock] = {}
 
         # 在聊天区底部启动持续旋转的加载动画
         self._thinking_start = _time.monotonic()
-        self._thinking_verb = random.choice(THINKING_VERBS)
         self._spinner_idx = 0
         self._spinner_label = Static(
-            f"  {SPINNER_FRAMES[0]} {self._thinking_verb}…",
+            RichText(f"{SPINNER_FRAMES[0]} 正在生成…  Esc 停止", style="#E5AB68"),
             id="spinner-live",
         )
         await chat.mount(self._spinner_label)
@@ -1204,35 +1244,23 @@ class EviForgeApp(App):
                     self.call_after_refresh(chat.scroll_end, animate=False)
 
                 elif isinstance(event, StreamText):
-                    if streaming_label is not None and not accumulated_text:
-                        await streaming_label.remove()
+                    if streaming_label is None:
                         streaming_label = Static("", classes="message ai-message")
                         await ai_row.mount(streaming_label)
                     accumulated_text += event.text
-                    from rich.text import Text as RichText
-                    t = RichText()
-                    t.append("● ", style="bold color(99)")
-                    t.append(accumulated_text)
-                    streaming_label.update(t)
+                    text_display = RichText(accumulated_text)
+                    text_display.append(" ▌", style="#E5AB68")
+                    streaming_label.update(text_display)
+                    if self._connection_state != "模型已连接":
+                        self._connection_state = "模型已连接"
+                        self._update_mode_label()
                     self.call_after_refresh(chat.scroll_end, animate=False)
 
                 elif isinstance(event, RetryEvent):
                     self._show_system_message(f"↻ Retrying: {event.reason}")
 
                 elif isinstance(event, ToolUseEvent):
-                    if accumulated_text:
-                        if streaming_label is not None:
-                            await streaming_label.remove()
-                        from rich.text import Text as RichText
-                        prefix = Static(RichText("●  ", style="bold color(99)"), classes="message")
-                        await ai_row.mount(prefix)
-                        md = Markdown(accumulated_text, classes="message ai-message")
-                        await ai_row.mount(md)
-                        streaming_label = None
-                        accumulated_text = ""
-                    elif streaming_label is not None:
-                        await streaming_label.remove()
-                        streaming_label = None
+                    await flush_text()
 
                     if _is_subagent_tool(event.tool_name):
                         agent_type = event.arguments.get("subagent_type", "")
@@ -1264,6 +1292,7 @@ class EviForgeApp(App):
                         await self._handle_askuser(ask_tool._pending_event)
 
                 elif isinstance(event, TurnComplete):
+                    await flush_text()
                     self._flush_session()
 
                     collapsible = [
@@ -1283,21 +1312,18 @@ class EviForgeApp(App):
                         await ai_row.mount(summary)
 
                     tool_blocks.clear()
-                    ai_row = Vertical(classes="ai-row")
-                    await chat.mount(ai_row)
-                    streaming_label = Static("", classes="message ai-message")
-                    await ai_row.mount(streaming_label)
-                    accumulated_text = ""
+                    ai_row = Vertical(classes="ai-turn")
+                    await reply.mount(ai_row)
                     self.call_after_refresh(chat.scroll_end, animate=False)
 
                 elif isinstance(event, UsageEvent):
-                    pass  # token 展示已移除
+                    self._connection_state = "模型已连接"
+                    self._update_token_label(event.input_tokens, event.output_tokens)
+                    self._update_mode_label()
 
                 elif isinstance(event, HookEvent):
-                    status = "✓" if event.success else "✗"
-                    self._show_system_message(
-                        f"Hook [{event.hook_id}] {status} {event.output}"
-                    )
+                    await chat.mount(HookNotice(event.hook_id, event.success, event.output))
+                    self.call_after_refresh(chat.scroll_end, animate=False)
 
                 elif isinstance(event, CompactNotification):
                     self._show_system_message(event.message)
@@ -1307,12 +1333,15 @@ class EviForgeApp(App):
                     self._persist_compact_boundary(event)
 
                 elif isinstance(event, ErrorEvent):
+                    self._connection_state = "请求异常"
+                    self._update_mode_label()
                     self._show_error(event.message)
 
                 elif isinstance(event, LoopComplete):
+                    await flush_text()
                     total_time = _time.monotonic() - self._thinking_start
                     done_label = Static(
-                        f"✻ {_to_past_tense(self._thinking_verb)} for {total_time:.1f}s",
+                        f"◇ 本轮结束 · {total_time:.1f}s",
                         classes="message thinking-done",
                     )
                     await ai_row.mount(done_label)
@@ -1336,13 +1365,7 @@ class EviForgeApp(App):
                             self.runtime.plan_service.finish(active_plan.plan_id,
                                 success=getattr(self.agent, "last_run_status", "success") == "success")
 
-            # 收尾：渲染剩余的累积文本
-            if accumulated_text and streaming_label is not None:
-                await streaming_label.remove()
-                md = Markdown(accumulated_text, classes="message ai-message")
-                await ai_row.mount(md)
-            elif streaming_label is not None:
-                await streaming_label.remove()
+            await flush_text()
 
             self.call_after_refresh(chat.scroll_end, animate=False)
 
@@ -1353,16 +1376,12 @@ class EviForgeApp(App):
                 active_plan = self.runtime.plan_service.current_plan(self.agent)
                 if active_plan is not None and active_plan.state in {PlanState.APPROVED, PlanState.EXECUTING}:
                     self.runtime.plan_service.finish(active_plan.plan_id, success=False)
-            if accumulated_text:
-                if streaming_label is not None:
-                    await streaming_label.remove()
-                md = Markdown(
-                    accumulated_text + "\n\n*[cancelled]*",
-                    classes="message ai-message",
-                )
-                await ai_row.mount(md)
-            self._show_system_message("Operation cancelled")
+            await flush_text()
+            self._show_system_message("已停止生成 · 保留已收到的内容")
         except LLMError as e:
+            await flush_text()
+            self._connection_state = "请求异常"
+            self._update_mode_label()
             from eviforge.client import AmbiguousStreamError
             self.agent.last_run_status = "ambiguous" if isinstance(e, AmbiguousStreamError) else "failed"
             self.agent.last_run_error = str(e)
@@ -1554,6 +1573,7 @@ class EviForgeApp(App):
         self._stop_spinner()
         self._stop_teammate_polling()
         self._agent_task = None
+        self._refresh_token_label()
         if self._teammate_tree is not None:
             self._teammate_tree.remove()
             self._teammate_tree = None
@@ -1568,7 +1588,7 @@ class EviForgeApp(App):
         elapsed = _time.monotonic() - self._thinking_start
         if self._spinner_label is not None:
             self._spinner_label.update(
-                f"  {frame} {self._thinking_verb}…  ({elapsed:.0f}s)"
+                RichText(f"{frame} 正在生成…  {elapsed:.0f}s  ·  Esc 停止", style="#E5AB68")
             )
             if self._spinner_idx % 5 == 0:
                 try:
@@ -1676,17 +1696,15 @@ class EviForgeApp(App):
             if msg.role == "user":
                 row = Vertical(classes="user-row")
                 await chat.mount(row)
-                user_rich = RichText()
-                user_rich.append("❯ ", style="bold color(80)")
-                user_rich.append(msg.content, style="bold color(255)")
-                bubble = Static(user_rich, classes="message user-message")
-                await row.mount(bubble)
+                bubble = Static(RichText(msg.content), classes="message user-message")
+                await row.mount(self._role_label("user"), bubble)
             elif msg.role == "assistant":
                 row = Vertical(classes="ai-row")
                 await chat.mount(row)
                 md = Markdown(msg.content, classes="message ai-message")
-                await row.mount(md)
+                await row.mount(self._role_label("assistant"), md)
 
+        self._refresh_token_label()
         self.call_after_refresh(chat.scroll_end, animate=False)
 
     # -----------------------------------------------------------------
@@ -1900,21 +1918,27 @@ class EviForgeApp(App):
         if self.agent:
             perm = self.agent.permission_mode
             display = self._MODE_DISPLAY.get(perm, perm.value)
-            color = _MODE_COLORS.get(perm, "dim")
-            label = self.query_one("#mode-label", Static)
-            if perm == PermissionMode.DEFAULT:
-                label.update(f"[{color}]{display}[/{color}]")
-            else:
-                label.update(f"[{color}]{display}[/{color}]  (shift+tab to cycle)")
-        try:
-            model_label = self.query_one("#model-label", Static)
-            model_text = self._selected_provider.model if self._selected_provider else ""
-            if self._mcp_connecting:
-                model_label.update(f"[yellow]MCP connecting…[/yellow]  {model_text}")
-            else:
-                model_label.update(model_text)
-        except Exception:
-            pass
+            hints = {PermissionMode.DEFAULT: "需审批", PermissionMode.ACCEPT_EDITS: "自动编辑",
+                     PermissionMode.PLAN: "仅规划", PermissionMode.BYPASS: "跳过审批"}
+            label = RichText(f"{display} · {hints.get(perm, '限制执行')}",
+                             style=_MODE_COLORS.get(perm, "dim"))
+            self.query_one("#mode-label", Static).update(label)
+        state = "MCP 连接中" if self._mcp_connecting else self._connection_state
+        color = "#8DBFA7" if state == "模型已连接" else "#E5AB68"
+        if state == "请求异常":
+            color = "#E78284"
+        self.query_one("#model-label", Static).update(RichText(f"● {state}", style=color))
+        self._refresh_token_label()
 
     def _update_token_label(self, input_tokens: int, output_tokens: int) -> None:
-        pass  # token 标签已从 UI 中移除
+        self._usage_tokens = max(0, input_tokens) + max(0, output_tokens)
+        self._refresh_token_label()
+
+    def _refresh_token_label(self) -> None:
+        if not self.is_running:
+            return
+        window = self.agent.context_window if self.agent else 128_000
+        percent = self.conversation.current_tokens() / max(1, window) * 100
+        tokens = f"{self._usage_tokens / 1000:.1f}k" if self._usage_tokens >= 1000 else str(self._usage_tokens)
+        self.query_one("#token-label", Static).update(
+            RichText(f"上下文 ~{percent:.0f}%  ·  {tokens} tokens"))
